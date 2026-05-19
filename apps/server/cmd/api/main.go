@@ -6,6 +6,9 @@ import (
 	"os"
 
 	"github.com/bin-ke/my-notion/internal/auth"
+	"github.com/bin-ke/my-notion/internal/block"
+	"github.com/bin-ke/my-notion/internal/file"
+	"github.com/bin-ke/my-notion/internal/page"
 	"github.com/bin-ke/my-notion/internal/workspace"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -23,12 +26,24 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
+	// File service (non-fatal if MinIO is down)
+	fileService, fileErr := file.NewService()
+	if fileErr != nil {
+		log.Printf("WARNING: file service not available: %v", fileErr)
+	}
+
 	// Services
 	authService := auth.NewService(database)
 	authHandler := auth.NewHandler(authService)
 
 	workspaceService := workspace.NewService(database)
 	workspaceHandler := workspace.NewHandler(workspaceService)
+
+	pageService := page.NewService(database)
+	pageHandler := page.NewHandler(pageService)
+
+	blockService := block.NewService(database)
+	blockHandler := block.NewHandler(blockService)
 
 	// Router
 	r := chi.NewRouter()
@@ -60,7 +75,28 @@ func main() {
 			r.Post("/", workspaceHandler.Create)
 			r.Get("/", workspaceHandler.List)
 			r.Get("/{id}", workspaceHandler.Get)
+			r.Get("/{id}/tree", pageHandler.GetTree)
 		})
+
+		r.Route("/api/v1/pages", func(r chi.Router) {
+			r.Post("/", pageHandler.Create)
+			r.Get("/{id}", pageHandler.Get)
+			r.Patch("/{id}", pageHandler.Update)
+			r.Get("/{id}/children", pageHandler.GetChildren)
+
+			// Block sub-routes
+			r.Get("/{pageId}/blocks", blockHandler.GetByPage)
+			r.Put("/{pageId}/blocks", blockHandler.BatchSave)
+			r.Post("/{pageId}/blocks/ops", blockHandler.ApplyOps)
+		})
+
+		// File upload
+		if fileService != nil {
+			fileHandler := file.NewHandler(fileService)
+			r.Route("/api/v1/files", func(r chi.Router) {
+				r.Post("/upload-url", fileHandler.GetUploadURL)
+			})
+		}
 	})
 
 	port := os.Getenv("PORT")
