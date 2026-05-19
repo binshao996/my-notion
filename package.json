@@ -1,0 +1,11 @@
+{
+  "name": "my-notion",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "dev:server": "cd apps/server && go run ./cmd/api",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "test": "pnpm --filter web test"
+  }
+}
