@@ -33,13 +33,37 @@ type WorkspaceMember struct {
 	User        User      `gorm:"foreignKey:UserID" json:"-"`
 }
 
+type Page struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	WorkspaceID  uint      `gorm:"not null;index" json:"workspace_id"`
+	ParentPageID *uint     `gorm:"index" json:"parent_page_id"`
+	Title        string    `gorm:"not null;default:''" json:"title"`
+	Icon         string    `json:"icon"`
+	Cover        string    `json:"cover"`
+	CreatedBy    uint      `gorm:"not null" json:"created_by"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Archived     bool      `gorm:"default:false" json:"archived"`
+}
+
+type Block struct {
+	ID            uint      `gorm:"primaryKey" json:"id"`
+	PageID        uint      `gorm:"not null;index" json:"page_id"`
+	ParentBlockID *uint     `gorm:"index" json:"parent_block_id"`
+	Type          string    `gorm:"not null" json:"type"`
+	Position      string    `gorm:"not null" json:"position"`
+	Props         string    `gorm:"type:jsonb;not null;default:'{}'" json:"props"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
 func Connect(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}); err != nil {
 		return nil, err
 	}
 
