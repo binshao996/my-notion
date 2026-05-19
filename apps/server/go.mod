@@ -5,6 +5,7 @@ go 1.23.2
 require (
 	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-chi/cors v1.2.2
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	golang.org/x/crypto v0.24.0
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.31.1
