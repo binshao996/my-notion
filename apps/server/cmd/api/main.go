@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/bin-ke/my-notion/internal/auth"
 	"github.com/bin-ke/my-notion/internal/block"
@@ -11,6 +12,7 @@ import (
 	"github.com/bin-ke/my-notion/internal/file"
 	"github.com/bin-ke/my-notion/internal/page"
 
+	"github.com/bin-ke/my-notion/internal/collaboration"
 	"github.com/bin-ke/my-notion/internal/comment"
 	"github.com/bin-ke/my-notion/internal/notification"
 	"github.com/bin-ke/my-notion/internal/permission"
@@ -77,6 +79,20 @@ func main() {
 	commentService := comment.NewService(database, notifService)
 	commentHandler := comment.NewHandler(commentService)
 
+	// M4 collaboration
+	collabService := collaboration.NewService(database)
+	collabDocStore := collaboration.NewDocStore()
+	collabHub := collaboration.NewHub()
+	collabHandler := collaboration.NewHandler(collabHub, collabDocStore, authService, authService.UserService)
+
+	// Load existing snapshots from DB into memory
+	if err := collabService.LoadAllSnapshots(collabDocStore); err != nil {
+		log.Printf("WARNING: failed to load collaboration snapshots: %v", err)
+	}
+
+	// Start periodic snapshot flush (every 30s)
+	collaboration.StartFlushLoop(collabDocStore, collabService, collabHub, 30*time.Second)
+
 	// Router
 	r := chi.NewRouter()
 
@@ -99,6 +115,9 @@ func main() {
 
 	// Share token resolution (public, no auth required)
 	r.Get("/api/v1/share/{token}", shareHandler.ResolveToken)
+
+	// WebSocket collaboration (public route, JWT validated in handler)
+	r.Get("/ws/page/{id}", collabHandler.HandleWebSocket)
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
