@@ -90,6 +90,14 @@ func main() {
 		log.Printf("WARNING: failed to load collaboration snapshots: %v", err)
 	}
 
+	// Wire hub → docstore persistence
+	collabHub.SetOnUpdate(func(pageID uint, data []byte) {
+		collabDocStore.AppendUpdate(pageID, data)
+	})
+	collabHub.SetOnRoomEmpty(func(pageID uint) {
+		collaboration.FlushOnEmpty(collabDocStore, collabService, pageID)
+	})
+
 	// Start periodic snapshot flush (every 30s)
 	collaboration.StartFlushLoop(collabDocStore, collabService, collabHub, 30*time.Second)
 

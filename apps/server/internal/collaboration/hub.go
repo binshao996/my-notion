@@ -9,8 +9,10 @@ import (
 
 // Hub manages all collaboration rooms. One room per page.
 type Hub struct {
-	mu    sync.RWMutex
-	rooms map[uint]*Room
+	mu          sync.RWMutex
+	rooms       map[uint]*Room
+	onUpdate    func(pageID uint, data []byte)
+	onRoomEmpty func(pageID uint)
 }
 
 // Room holds connected clients and the document update log for a single page.
@@ -38,6 +40,14 @@ func NewHub() *Hub {
 	return &Hub{
 		rooms: make(map[uint]*Room),
 	}
+}
+
+func (h *Hub) SetOnUpdate(fn func(pageID uint, data []byte)) {
+	h.onUpdate = fn
+}
+
+func (h *Hub) SetOnRoomEmpty(fn func(pageID uint)) {
+	h.onRoomEmpty = fn
 }
 
 func (h *Hub) getOrCreateRoom(pageID uint) *Room {
@@ -72,11 +82,8 @@ func (h *Hub) Unregister(client *Client) {
 	remaining := len(room.clients)
 	room.mu.Unlock()
 
-	// Clean up empty rooms after a delay (handled by caller via docstore)
-	if remaining == 0 {
-		h.mu.Lock()
-		// Keep room in map — docstore will flush and evict later
-		h.mu.Unlock()
+	if remaining == 0 && h.onRoomEmpty != nil {
+		h.onRoomEmpty(client.pageID)
 	}
 }
 
@@ -90,6 +97,10 @@ func (h *Hub) AppendUpdate(pageID uint, sender *Client, data []byte) {
 	room.updateLog = append(room.updateLog, data)
 	room.mu.Unlock()
 	h.BroadcastUpdate(pageID, sender, data)
+	// Notify docstore for persistence
+	if h.onUpdate != nil {
+		h.onUpdate(pageID, data)
+	}
 }
 
 // BroadcastUpdate sends a binary update to all clients in the room except the sender.
