@@ -144,13 +144,22 @@ type Notification struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type PageSnapshot struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	PageID    uint      `gorm:"uniqueIndex;not null" json:"page_id"`
+	DocBinary []byte    `gorm:"type:bytea;not null" json:"doc_binary"`
+	Version   uint      `gorm:"not null;default:0" json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 func Connect(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}, &Database{}, &Property{}, &Record{}, &PropertyValue{}, &View{}, &PagePermission{}, &ShareToken{}, &Comment{}, &Notification{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}, &Database{}, &Property{}, &Record{}, &PropertyValue{}, &View{}, &PagePermission{}, &ShareToken{}, &Comment{}, &Notification{}, &PageSnapshot{}); err != nil {
 		return nil, err
 	}
 
