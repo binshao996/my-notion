@@ -355,6 +355,8 @@ func getValuePath(alias string, propType string) string {
 		return fmt.Sprintf("%s.value ->> 'date'", alias)
 	case "relation":
 		return fmt.Sprintf("%s.value -> 'relation'", alias)
+	case "rollup":
+		return fmt.Sprintf("(%s.value ->> 'number')::numeric", alias)
 	case "created_time":
 		return "pages.created_at"
 	case "last_edited_time":

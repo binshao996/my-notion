@@ -13,7 +13,7 @@ export type PropertyType =
   | "title" | "text" | "number" | "select"
   | "multi_select" | "status" | "date" | "person"
   | "files" | "checkbox" | "url" | "email" | "phone"
-  | "relation" | "created_time" | "last_edited_time";
+  | "relation" | "rollup" | "created_time" | "last_edited_time";
 
 export interface SelectOption {
   id: string;
@@ -25,6 +25,9 @@ export interface PropertyConfig {
   options?: SelectOption[];
   format?: string;
   database_id?: number;
+  relation_property_id?: number;
+  target_property_id?: number;
+  aggregation?: string;
 }
 
 export interface Property {

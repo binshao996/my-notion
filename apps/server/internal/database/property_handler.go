@@ -64,6 +64,30 @@ func (h *PropertyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.Type == "rollup" {
+		var cfg struct {
+			RelationPropertyID uint   `json:"relation_property_id"`
+			TargetPropertyID   uint   `json:"target_property_id"`
+			Aggregation        string `json:"aggregation"`
+		}
+		if err := json.Unmarshal([]byte(req.Config), &cfg); err != nil ||
+			cfg.RelationPropertyID == 0 ||
+			cfg.TargetPropertyID == 0 ||
+			cfg.Aggregation == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "rollup property requires relation_property_id, target_property_id, and aggregation in config"})
+			return
+		}
+		validAggs := map[string]bool{"count": true, "sum": true, "average": true, "min": true, "max": true, "show_original": true}
+		if !validAggs[cfg.Aggregation] {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "invalid aggregation: " + cfg.Aggregation})
+			return
+		}
+	}
+
 	property, err := h.Service.Create(uint(id), req.Name, req.Type, req.Config)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")

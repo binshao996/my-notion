@@ -134,8 +134,30 @@ func (s *RecordService) Delete(id uint) error {
 
 func (s *RecordService) ListByDatabase(databaseID uint) ([]db.Record, error) {
 	var records []db.Record
-	err := s.DB.Where("database_id = ?", databaseID).Order("position ASC").Find(&records).Error
-	return records, err
+	if err := s.DB.Where("database_id = ?", databaseID).Order("position ASC").Find(&records).Error; err != nil {
+		return nil, err
+	}
+
+	// Resolve rollup property values for all records
+	var rollupProps []db.Property
+	s.DB.Where("database_id = ? AND type = ?", databaseID, "rollup").Find(&rollupProps)
+	if len(rollupProps) > 0 {
+		rs := NewRollupService(s.DB)
+		for _, record := range records {
+			for _, prop := range rollupProps {
+				computedValue, err := rs.ComputeRollup(record.ID, prop.Config)
+				if err != nil {
+					continue
+				}
+				// Upsert the computed value
+				s.DB.Where("record_id = ? AND property_id = ?", record.ID, prop.ID).
+					Assign(db.PropertyValue{Value: computedValue}).
+					FirstOrCreate(&db.PropertyValue{})
+			}
+		}
+	}
+
+	return records, nil
 }
 
 func (s *RecordService) GetByID(id uint) (*db.Record, []db.PropertyValue, []db.Property, error) {
