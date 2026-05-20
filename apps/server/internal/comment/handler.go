@@ -6,16 +6,18 @@ import (
 	"strconv"
 
 	"github.com/bin-ke/my-notion/internal/auth"
+	"github.com/bin-ke/my-notion/internal/permission"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
-	Service *Service
+	Service           *Service
+	PermissionService *permission.Service
 }
 
-func NewHandler(service *Service) *Handler {
-	return &Handler{Service: service}
+func NewHandler(service *Service, permService *permission.Service) *Handler {
+	return &Handler{Service: service, PermissionService: permService}
 }
 
 // ListByPage returns all comments for a page.
@@ -92,6 +94,31 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(comment)
 }
 
+// checkCommentAccess returns the comment if the user owns it or has editor access to its page.
+func (h *Handler) checkCommentAccess(r *http.Request, commentID uint) (*db.Comment, error) {
+	var comment db.Comment
+	if err := h.Service.DB.First(&comment, commentID).Error; err != nil {
+		return nil, err
+	}
+
+	claims := auth.GetUserFromContext(r.Context())
+	if claims == nil {
+		return nil, http.ErrAbortHandler
+	}
+
+	// Author always has access
+	if comment.AuthorID == claims.UserID {
+		return &comment, nil
+	}
+
+	// Check editor access on the page
+	if h.PermissionService.CanEdit(claims.UserID, comment.PageID) {
+		return &comment, nil
+	}
+
+	return nil, http.ErrAbortHandler
+}
+
 // Update edits or resolves a comment.
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -100,6 +127,13 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid comment id"})
+		return
+	}
+
+	if _, err := h.checkCommentAccess(r, uint(commentID)); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
 		return
 	}
 
@@ -146,6 +180,13 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid comment id"})
+		return
+	}
+
+	if _, err := h.checkCommentAccess(r, uint(commentID)); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "forbidden"})
 		return
 	}
 

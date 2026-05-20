@@ -78,7 +78,7 @@ func main() {
 	notifHandler := notification.NewHandler(notifService)
 
 	commentService := comment.NewService(database, notifService)
-	commentHandler := comment.NewHandler(commentService)
+	commentHandler := comment.NewHandler(commentService, permissionService)
 
 	// M4 collaboration
 	collabService := collaboration.NewService(database)
@@ -152,19 +152,29 @@ func main() {
 		})
 
 		r.Route("/api/v1/pages", func(r chi.Router) {
+			// Create page — workspace membership checked in handler
 			r.Post("/", pageHandler.Create)
-			r.Get("/{id}", pageHandler.Get)
-			r.Patch("/{id}", pageHandler.Update)
-			r.Get("/{id}/children", pageHandler.GetChildren)
 
-			// Block sub-routes
-			r.Get("/{pageId}/blocks", blockHandler.GetByPage)
-			r.Put("/{pageId}/blocks", blockHandler.BatchSave)
-			r.Post("/{pageId}/blocks/ops", blockHandler.ApplyOps)
+			// Viewer-level access for reads
+			r.Group(func(r chi.Router) {
+				r.Use(permission.PageAccess(permissionService, "viewer"))
+				r.Get("/{id}", pageHandler.Get)
+				r.Get("/{id}/children", pageHandler.GetChildren)
+				r.Get("/{pageId}/blocks", blockHandler.GetByPage)
+			})
+
+			// Editor-level access for writes
+			r.Group(func(r chi.Router) {
+				r.Use(permission.PageAccess(permissionService, "editor"))
+				r.Patch("/{id}", pageHandler.Update)
+				r.Put("/{pageId}/blocks", blockHandler.BatchSave)
+				r.Post("/{pageId}/blocks/ops", blockHandler.ApplyOps)
+			})
 		})
 
 		// Permissions
 		r.Route("/api/v1/pages/{id}/permissions", func(r chi.Router) {
+			r.Use(permission.PageAccess(permissionService, "editor"))
 			r.Get("/", permissionHandler.ListByPage)
 			r.Post("/", permissionHandler.Set)
 			r.Delete("/{permId}", permissionHandler.Remove)
@@ -172,15 +182,22 @@ func main() {
 
 		// Share tokens
 		r.Route("/api/v1/pages/{id}/share-tokens", func(r chi.Router) {
+			r.Use(permission.PageAccess(permissionService, "editor"))
 			r.Get("/", shareHandler.ListByPage)
 			r.Post("/", shareHandler.Create)
 			r.Delete("/{tokId}", shareHandler.Revoke)
 		})
 
 		// Comments
-		r.Route("/api/v1/pages/{id}/comments", func(r chi.Router) {
-			r.Get("/", commentHandler.ListByPage)
-			r.Post("/", commentHandler.Create)
+		r.Route("/api/v1/pages/{id}", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(permission.PageAccess(permissionService, "viewer"))
+				r.Get("/comments", commentHandler.ListByPage)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(permission.PageAccess(permissionService, "commenter"))
+				r.Post("/comments", commentHandler.Create)
+			})
 		})
 
 		r.Patch("/api/v1/comments/{id}", commentHandler.Update)
@@ -226,7 +243,7 @@ func main() {
 
 		// Search
 		if searchService != nil {
-			searchHandler := search.NewHandler(searchService, database)
+			searchHandler := search.NewHandler(searchService, database, permissionService)
 			r.Get("/api/v1/search", searchHandler.Search)
 			r.Post("/api/v1/search/reindex", searchHandler.Reindex)
 		}
