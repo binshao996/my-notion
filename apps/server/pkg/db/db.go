@@ -57,13 +57,57 @@ type Block struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type Database struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	WorkspaceID uint      `gorm:"not null;index" json:"workspace_id"`
+	PageID      uint      `gorm:"not null;uniqueIndex" json:"page_id"`
+	Name        string    `gorm:"not null;default:''" json:"name"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type Property struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	DatabaseID uint      `gorm:"not null;index" json:"database_id"`
+	Name       string    `gorm:"not null" json:"name"`
+	Type       string    `gorm:"not null" json:"type"`
+	Config     string    `gorm:"type:jsonb;not null;default:'{}'" json:"config"`
+	Position   string    `gorm:"not null" json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type Record struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	DatabaseID uint      `gorm:"not null;index" json:"database_id"`
+	PageID     uint      `gorm:"not null;uniqueIndex" json:"page_id"`
+	Position   string    `gorm:"not null" json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PropertyValue struct {
+	RecordID   uint   `gorm:"primaryKey;autoIncrement:false" json:"record_id"`
+	PropertyID uint   `gorm:"primaryKey;autoIncrement:false" json:"property_id"`
+	Value      string `gorm:"type:jsonb;not null;default:'{}'" json:"value"`
+}
+
+type View struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	DatabaseID uint      `gorm:"not null;index" json:"database_id"`
+	Name       string    `gorm:"not null;default:''" json:"name"`
+	Type       string    `gorm:"not null" json:"type"`
+	Config     string    `gorm:"type:jsonb;not null;default:'{}'" json:"config"`
+	Position   string    `gorm:"not null" json:"position"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
 func Connect(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}, &Database{}, &Property{}, &Record{}, &PropertyValue{}, &View{}); err != nil {
 		return nil, err
 	}
 
