@@ -7,6 +7,7 @@ import (
 
 	"github.com/bin-ke/my-notion/internal/auth"
 	"github.com/bin-ke/my-notion/internal/block"
+	databasepkg "github.com/bin-ke/my-notion/internal/database"
 	"github.com/bin-ke/my-notion/internal/file"
 	"github.com/bin-ke/my-notion/internal/page"
 	"github.com/bin-ke/my-notion/internal/workspace"
@@ -44,6 +45,18 @@ func main() {
 
 	blockService := block.NewService(database)
 	blockHandler := block.NewHandler(blockService)
+
+	// Database services
+	databaseService := databasepkg.NewService(database)
+	propertyService := databasepkg.NewPropertyService(database)
+	recordService := databasepkg.NewRecordService(database)
+	queryService := databasepkg.NewQueryService(database)
+	viewService := databasepkg.NewViewService(database)
+
+	databaseHandler := databasepkg.NewHandler(databaseService, propertyService, recordService, viewService)
+	propertyHandler := databasepkg.NewPropertyHandler(propertyService)
+	recordHandler := databasepkg.NewRecordHandler(recordService, queryService)
+	viewHandler := databasepkg.NewViewHandler(viewService)
 
 	// Router
 	r := chi.NewRouter()
@@ -89,6 +102,30 @@ func main() {
 			r.Put("/{pageId}/blocks", blockHandler.BatchSave)
 			r.Post("/{pageId}/blocks/ops", blockHandler.ApplyOps)
 		})
+
+		// Database routes
+		r.Route("/api/v1/databases", func(r chi.Router) {
+			r.Post("/", databaseHandler.Create)
+			r.Get("/{id}", databaseHandler.Get)
+			r.Patch("/{id}", databaseHandler.Update)
+			r.Delete("/{id}", databaseHandler.Delete)
+
+			r.Post("/{id}/properties", propertyHandler.Create)
+			r.Get("/{id}/records", recordHandler.List)
+			r.Post("/{id}/records", recordHandler.Create)
+
+			r.Post("/{id}/views", viewHandler.Create)
+			r.Get("/{id}/views/{viewId}/records", recordHandler.ListByView)
+		})
+
+		r.Patch("/api/v1/properties/{id}", propertyHandler.Update)
+		r.Delete("/api/v1/properties/{id}", propertyHandler.Delete)
+
+		r.Patch("/api/v1/records/{id}", recordHandler.Update)
+		r.Delete("/api/v1/records/{id}", recordHandler.Delete)
+
+		r.Patch("/api/v1/views/{id}", viewHandler.Update)
+		r.Delete("/api/v1/views/{id}", viewHandler.Delete)
 
 		// File upload
 		if fileService != nil {
