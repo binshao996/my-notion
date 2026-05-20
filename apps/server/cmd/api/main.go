@@ -18,6 +18,7 @@ import (
 	"github.com/bin-ke/my-notion/internal/permission"
 	"github.com/bin-ke/my-notion/internal/share"
 
+	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/internal/workspace"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -100,6 +101,12 @@ func main() {
 
 	// Start periodic snapshot flush (every 30s)
 	collaboration.StartFlushLoop(collabDocStore, collabService, collabHub, 30*time.Second)
+
+	// Search service (non-fatal if OpenSearch is down)
+	searchService, searchErr := search.NewService()
+	if searchErr != nil {
+		log.Printf("WARNING: search service not available: %v", searchErr)
+	}
 
 	// Router
 	r := chi.NewRouter()
@@ -211,6 +218,13 @@ func main() {
 			r.Route("/api/v1/files", func(r chi.Router) {
 				r.Post("/upload-url", fileHandler.GetUploadURL)
 			})
+		}
+
+		// Search
+		if searchService != nil {
+			searchHandler := search.NewHandler(searchService, database)
+			r.Get("/api/v1/search", searchHandler.Search)
+			r.Post("/api/v1/search/reindex", searchHandler.Reindex)
 		}
 	})
 
