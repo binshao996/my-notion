@@ -17,6 +17,17 @@ services:
     ports:
       - "6379:6379"
 
+  opensearch:
+    image: opensearchproject/opensearch:2.18.0
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin123!
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+
   minio:
     image: minio/minio
     command: server /data --console-address ":9001"
@@ -32,3 +43,4 @@ services:
 volumes:
   pgdata:
   miniodata:
+  opensearch-data:
