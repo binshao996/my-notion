@@ -3,6 +3,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Workspace from "./pages/Workspace";
 import PageView from "./pages/PageView";
+import DatabasePage from "./pages/DatabasePage";
+import RecordDetailPage from "./pages/RecordDetailPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -23,6 +25,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <PageView />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/database/:dbId"
+        element={
+          <ProtectedRoute>
+            <DatabasePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/record/:recordId"
+        element={
+          <ProtectedRoute>
+            <RecordDetailPage />
           </ProtectedRoute>
         }
       />
