@@ -105,7 +105,7 @@ func (s *QueryService) QueryRecords(databaseID uint, viewID uint, page, limit in
 	}
 
 	// 5. Build the main query with filters, sorts, and grouping
-	mainQuery := s.DB.Table("records").Where("records.database_id = ?", databaseID)
+	mainQuery := s.DB.Table("records").Joins("JOIN pages ON pages.id = records.page_id").Where("records.database_id = ?", databaseID)
 	mainQuery, err = applyFilters(mainQuery, vc.Filters, propMap)
 	if err != nil {
 		return nil, 0, fmt.Errorf("applying filters: %w", err)
@@ -340,6 +340,10 @@ func getValuePath(alias string, propType string) string {
 		return fmt.Sprintf("%s.value ->> 'multi_select'", alias)
 	case "date":
 		return fmt.Sprintf("%s.value ->> 'date'", alias)
+	case "created_time":
+		return "pages.created_at"
+	case "last_edited_time":
+		return "pages.updated_at"
 	default: // title, text, url, email, phone, person, files
 		return fmt.Sprintf("%s.value ->> 'text'", alias)
 	}

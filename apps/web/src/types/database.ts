@@ -12,7 +12,8 @@ export interface Database {
 export type PropertyType =
   | "title" | "text" | "number" | "select"
   | "multi_select" | "status" | "date" | "person"
-  | "files" | "checkbox" | "url" | "email" | "phone";
+  | "files" | "checkbox" | "url" | "email" | "phone"
+  | "created_time" | "last_edited_time";
 
 export interface SelectOption {
   id: string;

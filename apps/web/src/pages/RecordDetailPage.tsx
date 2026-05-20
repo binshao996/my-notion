@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useEditorStore } from "../features/editor/useEditorStore";
 import { useAuthStore } from "../stores/auth";
-import { api } from "../lib/api";
+import { useDatabaseStore } from "../stores/database";
 import PageTree from "../features/sidebar/PageTree";
 import BlockShell from "../features/editor/BlockShell";
 import CommandPalette from "../features/editor/CommandPalette";
@@ -12,6 +12,7 @@ export default function RecordDetailPage() {
   const { recordId } = useParams<{ recordId: string }>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const loadRecord = useDatabaseStore((s) => s.loadRecord);
 
   const {
     blocks,
@@ -44,31 +45,19 @@ export default function RecordDetailPage() {
     setPageLoading(true);
     setPageError(null);
 
-    // Try to load the record to get its page_id and property values
-    api
-      .get<any>(`/records/${id}`)
-      .then((data) => {
-        const rec = data.record || data;
-        const pid = rec.page_id;
-        setPageId(pid);
-        setRecordProps(data.properties || []);
-
-        // Extract property values into a lookup
+    loadRecord(id)
+      .then(({ record: rec, properties: props }) => {
+        setRecordProps(props || []);
         const vals: Record<number, any> = {};
-        (rec.property_values || []).forEach((pv: any) => {
-          const raw = pv.value;
-          try {
-            vals[pv.property_id] = typeof raw === "string" ? JSON.parse(raw) : raw;
-          } catch {
-            vals[pv.property_id] = raw;
-          }
+        (rec.property_values || []).forEach((pv: { property_id: number; value: any }) => {
+          vals[pv.property_id] = pv.value;
         });
         setRecordValues(vals);
-
-        return loadPage(pid);
+        setPageId(rec.page_id);
+        return loadPage(rec.page_id);
       })
-      .catch((err) => {
-        setPageError(err instanceof Error ? err.message : "Record not found");
+      .catch((e) => {
+        setPageError(e instanceof Error ? e.message : "Record not found");
         setPageLoading(false);
       });
   }, [recordId]);

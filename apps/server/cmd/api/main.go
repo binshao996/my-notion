@@ -121,6 +121,7 @@ func main() {
 		r.Patch("/api/v1/properties/{id}", propertyHandler.Update)
 		r.Delete("/api/v1/properties/{id}", propertyHandler.Delete)
 
+		r.Get("/api/v1/records/{id}", recordHandler.Get)
 		r.Patch("/api/v1/records/{id}", recordHandler.Update)
 		r.Delete("/api/v1/records/{id}", recordHandler.Delete)
 

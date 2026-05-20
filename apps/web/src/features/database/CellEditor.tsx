@@ -46,6 +46,9 @@ function displayValue(value: any, property: Property): string {
     case "person":
     case "files":
       return "—";
+    case "created_time":
+    case "last_edited_time":
+      return value?.date ? new Date(value.date).toLocaleDateString() : "";
     default:
       return String(value);
   }
@@ -74,6 +77,9 @@ function buildCommitValue(raw: string, property: Property): any {
     case "multi_select":
       // Splitting comma-separated IDs
       return { multi_select: raw.split(",").map((s) => s.trim()).filter(Boolean) };
+    case "created_time":
+    case "last_edited_time":
+      return null;
     default:
       return { text: raw };
   }
@@ -178,10 +184,10 @@ export default function CellEditor({
   }
 
   // ---------- person / files: read-only for now ----------
-  if (property.type === "person" || property.type === "files") {
+  if (property.type === "person" || property.type === "files" || property.type === "created_time" || property.type === "last_edited_time") {
     return (
       <div className="text-sm text-gray-400 px-1 py-0.5 select-none">
-        {"—"}
+        {displayValue(value, property) || "—"}
       </div>
     );
   }

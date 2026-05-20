@@ -4,6 +4,7 @@ import type {
   Database,
   Property,
   Record as DatabaseRecord,
+  RecordValue,
   View,
   DatabaseGetResponse,
   RecordsListResponse,
@@ -30,6 +31,7 @@ interface DatabaseState {
   updateRecord: (id: number, values: Record<string, any>) => Promise<void>;
   deleteRecord: (id: number) => Promise<void>;
   loadRecords: (databaseId: number, viewId?: number, page?: number) => Promise<void>;
+  loadRecord: (id: number) => Promise<{ record: DatabaseRecord; properties: Property[] }>;
 }
 
 export const useDatabaseStore = create<DatabaseState>((set) => ({
@@ -142,5 +144,18 @@ export const useDatabaseStore = create<DatabaseState>((set) => ({
         error: e instanceof Error ? e.message : "Failed to load records",
       });
     }
+  },
+
+  loadRecord: async (id) => {
+    const data = await api.get<{ record: DatabaseRecord; property_values: RecordValue[]; properties: Property[] }>(`/records/${id}`);
+    // Parse property values from string JSONB to objects
+    const record = {
+      ...data.record,
+      property_values: (data.property_values || []).map(pv => ({
+        ...pv,
+        value: typeof pv.value === 'string' ? JSON.parse(pv.value) : pv.value,
+      })),
+    };
+    return { record, properties: data.properties };
   },
 }));

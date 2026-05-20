@@ -2,6 +2,7 @@ package database
 
 import (
 	"encoding/json"
+	"errors"
 
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/bin-ke/my-notion/pkg/position"
@@ -135,4 +136,19 @@ func (s *RecordService) ListByDatabase(databaseID uint) ([]db.Record, error) {
 	var records []db.Record
 	err := s.DB.Where("database_id = ?", databaseID).Order("position ASC").Find(&records).Error
 	return records, err
+}
+
+func (s *RecordService) GetByID(id uint) (*db.Record, []db.PropertyValue, []db.Property, error) {
+	var record db.Record
+	if err := s.DB.First(&record, id).Error; err != nil {
+		return nil, nil, nil, errors.New("record not found")
+	}
+
+	var values []db.PropertyValue
+	s.DB.Where("record_id = ?", id).Find(&values)
+
+	var properties []db.Property
+	s.DB.Where("database_id = ?", record.DatabaseID).Order("position ASC").Find(&properties)
+
+	return &record, values, properties, nil
 }
