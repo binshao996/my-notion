@@ -101,13 +101,56 @@ type View struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+type PagePermission struct {
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	PageID      uint      `gorm:"not null;index" json:"page_id"`
+	SubjectType string    `gorm:"not null;default:user" json:"subject_type"`
+	SubjectID   uint      `gorm:"not null" json:"subject_id"`
+	Role        string    `gorm:"not null;default:viewer" json:"role"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type ShareToken struct {
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	Token     string     `gorm:"uniqueIndex;not null" json:"token"`
+	PageID    uint       `gorm:"not null;index" json:"page_id"`
+	Role      string     `gorm:"not null;default:viewer" json:"role"`
+	ExpiresAt *time.Time `json:"expires_at"`
+	CreatedBy uint       `gorm:"not null" json:"created_by"`
+	CreatedAt time.Time  `json:"created_at"`
+}
+
+type Comment struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	PageID    uint      `gorm:"not null;index" json:"page_id"`
+	BlockID   *uint     `gorm:"index" json:"block_id"`
+	AuthorID  uint      `gorm:"not null" json:"author_id"`
+	Content   string    `gorm:"type:jsonb;not null;default:'{}'" json:"content"`
+	Resolved  bool      `gorm:"default:false" json:"resolved"`
+	ParentID  *uint     `gorm:"index" json:"parent_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Author    User      `gorm:"foreignKey:AuthorID" json:"-"`
+}
+
+type Notification struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	UserID       uint      `gorm:"not null;index" json:"user_id"`
+	Type         string    `gorm:"not null" json:"type"`
+	ActorID      uint      `json:"actor_id"`
+	TargetPageID uint      `json:"target_page_id"`
+	CommentID    *uint     `json:"comment_id"`
+	Read         bool      `gorm:"default:false" json:"read"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 func Connect(dsn string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}, &Database{}, &Property{}, &Record{}, &PropertyValue{}, &View{}); err != nil {
+	if err := db.AutoMigrate(&User{}, &Workspace{}, &WorkspaceMember{}, &Page{}, &Block{}, &Database{}, &Property{}, &Record{}, &PropertyValue{}, &View{}, &PagePermission{}, &ShareToken{}, &Comment{}, &Notification{}); err != nil {
 		return nil, err
 	}
 
