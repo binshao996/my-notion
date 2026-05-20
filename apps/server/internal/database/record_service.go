@@ -157,6 +157,30 @@ func (s *RecordService) ListByDatabase(databaseID uint) ([]db.Record, error) {
 		}
 	}
 
+	// Resolve formula property values for all records
+	var formulaProps []db.Property
+	s.DB.Where("database_id = ? AND type = ?", databaseID, "formula").Find(&formulaProps)
+	if len(formulaProps) > 0 {
+		fs := NewFormulaService(s.DB)
+		for _, record := range records {
+			for _, prop := range formulaProps {
+				var cfg struct {
+					Expression string `json:"expression"`
+				}
+				if err := json.Unmarshal([]byte(prop.Config), &cfg); err != nil || cfg.Expression == "" {
+					continue
+				}
+				computedValue, err := fs.ComputeFormula(databaseID, record.ID, cfg.Expression)
+				if err != nil {
+					continue
+				}
+				s.DB.Where("record_id = ? AND property_id = ?", record.ID, prop.ID).
+					Assign(db.PropertyValue{Value: computedValue}).
+					FirstOrCreate(&db.PropertyValue{})
+			}
+		}
+	}
+
 	return records, nil
 }
 

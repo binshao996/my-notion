@@ -88,6 +88,18 @@ func (h *PropertyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.Type == "formula" {
+		var cfg struct {
+			Expression string `json:"expression"`
+		}
+		if err := json.Unmarshal([]byte(req.Config), &cfg); err != nil || cfg.Expression == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "formula property requires a valid expression in config"})
+			return
+		}
+	}
+
 	property, err := h.Service.Create(uint(id), req.Name, req.Type, req.Config)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
