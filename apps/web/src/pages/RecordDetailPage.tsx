@@ -7,6 +7,8 @@ import PageTree from "../features/sidebar/PageTree";
 import BlockShell from "../features/editor/BlockShell";
 import CommandPalette from "../features/editor/CommandPalette";
 import type { Property } from "../types/database";
+import ShareMenu from "../features/permissions/ShareMenu";
+import CommentThread from "../features/comments/CommentThread";
 
 export default function RecordDetailPage() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -207,6 +209,10 @@ export default function RecordDetailPage() {
       </aside>
 
       <main className="flex flex-1 flex-col">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-2">
+          <h1 className="text-sm font-semibold text-gray-900">Record Detail</h1>
+          <ShareMenu pageId={pageId || 0} />
+        </div>
         {/* Save status bar */}
         <div className="flex items-center justify-end gap-2 border-b border-gray-100 px-6 py-1">
           {saving && <span className="text-xs text-gray-400">Saving...</span>}
@@ -263,6 +269,15 @@ export default function RecordDetailPage() {
                 Click to add a block, or type /
               </button>
             )}
+          </div>
+        </div>
+
+        <div className="border-t border-gray-200 px-6 py-4">
+          <div className="mx-auto max-w-3xl">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold text-gray-500">Comments</span>
+            </div>
+            <CommentThread pageId={pageId || 0} />
           </div>
         </div>
       </main>

@@ -5,6 +5,7 @@ import Workspace from "./pages/Workspace";
 import PageView from "./pages/PageView";
 import DatabasePage from "./pages/DatabasePage";
 import RecordDetailPage from "./pages/RecordDetailPage";
+import SharedPage from "./pages/SharedPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/shared/:token" element={<SharedPage />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

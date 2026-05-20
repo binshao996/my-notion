@@ -1,10 +1,13 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useEditorStore } from "../features/editor/useEditorStore";
 import { useAuthStore } from "../stores/auth";
 import BlockShell from "../features/editor/BlockShell";
 import CommandPalette from "../features/editor/CommandPalette";
 import PageTree from "../features/sidebar/PageTree";
+import ShareMenu from "../features/permissions/ShareMenu";
+import CommentThread from "../features/comments/CommentThread";
+import NotificationPopover from "../features/notifications/NotificationPopover";
 
 export default function PageView() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -65,15 +68,20 @@ export default function PageView() {
     [addBlock]
   );
 
+  const [showComments, setShowComments] = useState(false);
+
   if (loading) {
     return (
       <div className="flex min-h-screen bg-white">
         <aside className="flex w-60 flex-col border-r border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
             <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
-            <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
-              Sign out
-            </button>
+            <div className="flex items-center gap-1">
+              <NotificationPopover />
+              <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
+                Sign out
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <PageTree />
@@ -92,9 +100,12 @@ export default function PageView() {
         <aside className="flex w-60 flex-col border-r border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
             <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
-            <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
-              Sign out
-            </button>
+            <div className="flex items-center gap-1">
+              <NotificationPopover />
+              <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
+                Sign out
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <PageTree />
@@ -121,9 +132,12 @@ export default function PageView() {
       <aside className="flex w-60 flex-col border-r border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
-          <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
-            Sign out
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationPopover />
+            <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
+              Sign out
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           <PageTree />
@@ -133,10 +147,21 @@ export default function PageView() {
       {/* Editor */}
       <main className="flex flex-1 flex-col">
         {/* Save status bar */}
-        <div className="flex items-center justify-end gap-2 border-b border-gray-100 px-6 py-1">
-          {saving && <span className="text-xs text-gray-400">Saving...</span>}
-          {dirty && !saving && <span className="text-xs text-gray-300">Unsaved</span>}
-          {!dirty && !saving && <span className="text-xs text-gray-300">Saved</span>}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-1">
+          <div className="flex items-center gap-2">
+            <ShareMenu pageId={Number(pageId)} />
+            <button
+              className={`rounded px-2 py-0.5 text-xs ${showComments ? "bg-blue-100 text-blue-700" : "text-gray-400 hover:text-gray-600"}`}
+              onClick={() => setShowComments(!showComments)}
+            >
+              Comments
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            {saving && <span className="text-xs text-gray-400">Saving...</span>}
+            {dirty && !saving && <span className="text-xs text-gray-300">Unsaved</span>}
+            {!dirty && !saving && <span className="text-xs text-gray-300">Saved</span>}
+          </div>
         </div>
 
         {/* Block editor */}
@@ -175,6 +200,20 @@ export default function PageView() {
             )}
           </div>
         </div>
+
+        {showComments && (
+          <div className="border-t border-gray-200 px-6 py-4">
+            <div className="mx-auto max-w-3xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-gray-500">Comments</span>
+                <button className="text-xs text-gray-400 hover:text-gray-600" onClick={() => setShowComments(false)}>
+                  ✕
+                </button>
+              </div>
+              <CommentThread pageId={Number(pageId)} />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

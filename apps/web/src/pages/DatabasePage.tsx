@@ -4,6 +4,8 @@ import { useAuthStore } from "../stores/auth";
 import { useDatabaseStore } from "../stores/database";
 import { useViewsStore } from "../stores/views";
 import PageTree from "../features/sidebar/PageTree";
+import ShareMenu from "../features/permissions/ShareMenu";
+import NotificationPopover from "../features/notifications/NotificationPopover";
 import TableView from "../features/database/TableView";
 import BoardView from "../features/database/BoardView";
 import CalendarView from "../features/database/CalendarView";
@@ -98,12 +100,15 @@ export default function DatabasePage() {
             <span className="text-sm font-semibold text-gray-900">
               {user?.name || "User"}'s Notion
             </span>
-            <button
-              onClick={logout}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Sign out
-            </button>
+            <div className="flex items-center gap-1">
+              <NotificationPopover />
+              <button
+                onClick={logout}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <PageTree />
@@ -125,12 +130,15 @@ export default function DatabasePage() {
             <span className="text-sm font-semibold text-gray-900">
               {user?.name || "User"}'s Notion
             </span>
-            <button
-              onClick={logout}
-              className="text-xs text-gray-400 hover:text-gray-600"
-            >
-              Sign out
-            </button>
+            <div className="flex items-center gap-1">
+              <NotificationPopover />
+              <button
+                onClick={logout}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <PageTree />
@@ -160,12 +168,15 @@ export default function DatabasePage() {
           <span className="text-sm font-semibold text-gray-900">
             {user?.name || "User"}'s Notion
           </span>
-          <button
-            onClick={logout}
-            className="text-xs text-gray-400 hover:text-gray-600"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationPopover />
+            <button
+              onClick={logout}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           <PageTree />
@@ -211,6 +222,8 @@ export default function DatabasePage() {
           <button className="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100">
             Group
           </button>
+
+          <ShareMenu pageId={database?.page_id || 0} />
 
           <button
             onClick={handleNewRecord}
