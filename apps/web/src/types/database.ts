@@ -24,6 +24,7 @@ export interface SelectOption {
 export interface PropertyConfig {
   options?: SelectOption[];
   format?: string;
+  database_id?: number;
 }
 
 export interface Property {

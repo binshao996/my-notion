@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Property, SelectOption } from "../../types/database";
+import RelationPicker from "./RelationPicker";
 
 interface CellEditorProps {
   property: Property;
@@ -39,6 +40,10 @@ function displayValue(value: any, property: Property): string {
         .filter(Boolean);
       return names.join(", ");
     }
+    case "relation": {
+      const ids: number[] = value?.relation ?? [];
+      return ids.length === 0 ? "" : `${ids.length} record${ids.length > 1 ? "s" : ""}`;
+    }
     case "date":
       return value?.date ?? "";
     case "checkbox":
@@ -77,6 +82,8 @@ function buildCommitValue(raw: string, property: Property): any {
     case "multi_select":
       // Splitting comma-separated IDs
       return { multi_select: raw.split(",").map((s) => s.trim()).filter(Boolean) };
+    case "relation":
+      return null; // relation values come from RelationPicker, not text input
     case "created_time":
     case "last_edited_time":
       return null;
@@ -107,6 +114,8 @@ function editInitialValue(value: any, property: Property): string {
       return value?.checkbox ? "checked" : "";
     case "multi_select":
       return (value?.multi_select ?? []).join(", ");
+    case "relation":
+      return (value?.relation ?? []).map(String).join(", ");
     default:
       return "";
   }
@@ -179,6 +188,24 @@ export default function CellEditor({
         className="w-full rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-blue-400"
         value={currentDate}
         onChange={(e) => onChange({ date: e.target.value })}
+      />
+    );
+  }
+
+  // ---------- relation: multi-record picker ----------
+  if (property.type === "relation") {
+    const targetDbId = property.config?.database_id;
+    if (!targetDbId) {
+      return (
+        <div className="text-sm text-gray-400 px-1 py-0.5">No target database configured</div>
+      );
+    }
+    const ids: number[] = value?.relation ?? [];
+    return (
+      <RelationPicker
+        databaseId={targetDbId}
+        value={ids}
+        onChange={onChange}
       />
     );
   }
