@@ -1,6 +1,9 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { ySyncPlugin, yCursorPlugin } from "y-prosemirror";
+import * as Y from "yjs";
+import type { Awareness } from "../collaboration/websocket-provider";
 
 interface BlockContentProps {
   type: string;
@@ -9,6 +12,9 @@ interface BlockContentProps {
   onUpdate: (html: string, text: string) => void;
   onEnterPress?: () => void;
   readOnly?: boolean;
+  ydoc?: Y.Doc | null;
+  awareness?: Awareness | null;
+  blockId?: string;
 }
 
 const placeholderMap: Record<string, string> = {
@@ -32,17 +38,31 @@ export default function BlockContent({
   onUpdate,
   onEnterPress: _onEnterPress,
   readOnly,
+  ydoc,
+  awareness,
+  blockId,
 }: BlockContentProps) {
+  const extensions: any[] = [
+    StarterKit.configure({
+      heading: false,
+    }),
+    Placeholder.configure({
+      placeholder: placeholder || placeholderMap[type] || "Type '/' for commands...",
+    }),
+  ];
+
+  // Integrate Yjs collaborative editing
+  if (ydoc && blockId) {
+    const fragment = ydoc.getXmlFragment("block:" + blockId);
+    extensions.push(ySyncPlugin(fragment));
+    if (awareness) {
+      extensions.push(yCursorPlugin(awareness as any));
+    }
+  }
+
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false, // we handle heading levels ourselves
-      }),
-      Placeholder.configure({
-        placeholder: placeholder || placeholderMap[type] || "Type '/' for commands...",
-      }),
-    ],
-    content: content,
+    extensions,
+    content: ydoc && blockId ? undefined : content, // Yjs provides content, not initial prop
     editable: !readOnly,
     onUpdate: ({ editor }) => {
       onUpdate(editor.getHTML(), editor.getText());
@@ -51,7 +71,6 @@ export default function BlockContent({
 
   if (!editor) return null;
 
-  // Get the height class for headings
   const headingClass = type.startsWith("heading") ? {
     heading1: "text-3xl font-bold",
     heading2: "text-2xl font-semibold",

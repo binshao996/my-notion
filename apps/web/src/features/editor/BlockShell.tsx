@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import BlockContent from "./BlockContent";
+import type * as Y from "yjs";
 
 export interface BlockData {
   id: number;
@@ -19,6 +20,8 @@ interface BlockShellProps {
   onAddAfter: (index: number, type?: string) => void;
   onIndent: (index: number) => void;
   onOutdent: (index: number) => void;
+  ydoc?: Y.Doc | null;
+  awareness?: any | null;
 }
 
 const blockTypes = [
@@ -46,6 +49,8 @@ export default function BlockShell({
   onAddAfter,
   onIndent,
   onOutdent,
+  ydoc,
+  awareness,
 }: BlockShellProps) {
   const [showMenu, setShowMenu] = useState(false);
   const [showTypeMenu, setShowTypeMenu] = useState(false);
@@ -119,6 +124,9 @@ export default function BlockShell({
           content={content}
           onUpdate={handleUpdate}
           onEnterPress={() => onAddAfter(index)}
+          ydoc={ydoc ?? null}
+          awareness={awareness ?? null}
+          blockId={String(block.tempId || block.id || index)}
         />
 
         {/* Type change menu */}
