@@ -3,14 +3,17 @@ package database
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 
+	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/bin-ke/my-notion/pkg/position"
 	"gorm.io/gorm"
 )
 
 type RecordService struct {
-	DB *gorm.DB
+	DB            *gorm.DB
+	SearchService *search.Service
 }
 
 func NewRecordService(database *gorm.DB) *RecordService {
@@ -85,6 +88,25 @@ func (s *RecordService) Create(databaseID uint, propertyValues map[uint]string, 
 	}
 
 	tx.Commit()
+
+	// Index for search
+	if s.SearchService != nil {
+		var propTexts []string
+		for _, val := range propertyValues {
+			var v map[string]any
+			if err := json.Unmarshal([]byte(val), &v); err != nil {
+				continue
+			}
+			if t, ok := v["text"].(string); ok {
+				propTexts = append(propTexts, t)
+			}
+			if t, ok := v["title"].(string); ok {
+				propTexts = append(propTexts, t)
+			}
+		}
+		s.SearchService.IndexRecord(record.ID, databaseID, database.WorkspaceID, title, strings.Join(propTexts, " "))
+	}
+
 	return &record, nil
 }
 
@@ -97,6 +119,51 @@ func (s *RecordService) Update(id uint, propertyValues map[uint]string) error {
 			return err
 		}
 	}
+
+	// Re-index for search
+	if s.SearchService != nil {
+		var record db.Record
+		if err := s.DB.First(&record, id).Error; err != nil {
+			return nil
+		}
+		var database db.Database
+		if err := s.DB.First(&database, record.DatabaseID).Error; err != nil {
+			return nil
+		}
+
+		var pvs []struct {
+			PropertyName string
+			Value        string
+		}
+		s.DB.Table("property_values").
+			Select("properties.name as property_name, property_values.value").
+			Joins("JOIN properties ON properties.id = property_values.property_id").
+			Where("property_values.record_id = ?", id).
+			Find(&pvs)
+
+		title := ""
+		var propTexts []string
+		for _, pv := range pvs {
+			var v map[string]any
+			if err := json.Unmarshal([]byte(pv.Value), &v); err != nil {
+				continue
+			}
+			if t, ok := v["text"].(string); ok {
+				if pv.PropertyName == "title" || title == "" {
+					title = t
+				}
+				propTexts = append(propTexts, t)
+			}
+			if t, ok := v["title"].(string); ok {
+				if title == "" {
+					title = t
+				}
+				propTexts = append(propTexts, t)
+			}
+		}
+		s.SearchService.IndexRecord(record.ID, record.DatabaseID, database.WorkspaceID, title, strings.Join(propTexts, " "))
+	}
+
 	return nil
 }
 
@@ -129,6 +196,11 @@ func (s *RecordService) Delete(id uint) error {
 	}
 
 	tx.Commit()
+
+	if s.SearchService != nil {
+		s.SearchService.DeleteRecord(id)
+	}
+
 	return nil
 }
 

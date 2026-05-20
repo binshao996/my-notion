@@ -106,6 +106,10 @@ func main() {
 	searchService, searchErr := search.NewService()
 	if searchErr != nil {
 		log.Printf("WARNING: search service not available: %v", searchErr)
+	} else {
+		pageService.SearchService = searchService
+		blockService.SearchService = searchService
+		recordService.SearchService = searchService
 	}
 
 	// Router

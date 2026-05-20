@@ -178,6 +178,11 @@ func (s *Service) IndexRecord(recordID, databaseID, workspaceID uint, title, pro
 	return s.index("records", recordID, body)
 }
 
+// DeleteRecord removes a database record from the index.
+func (s *Service) DeleteRecord(recordID uint) error {
+	return s.delete("records", recordID)
+}
+
 func (s *Service) index(index string, id uint, body map[string]any) error {
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -332,7 +337,7 @@ func (s *Service) ReindexAll(db *gorm.DB) error {
 		return fmt.Errorf("reindex blocks: %w", err)
 	}
 	for _, b := range blocks {
-		text := extractText(b.Props)
+		text := ExtractText(b.Props)
 		if text != "" {
 			if err := s.IndexBlock(b.ID, b.PageID, b.WorkspaceID, b.Type, text); err != nil {
 				log.Printf("search: failed to index block %d: %v", b.ID, err)
@@ -393,8 +398,8 @@ func (s *Service) ReindexAll(db *gorm.DB) error {
 	return nil
 }
 
-// extractText pulls readable text from a JSONB block props string.
-func extractText(propsJSON string) string {
+// ExtractText pulls readable text from a JSONB block props string.
+func ExtractText(propsJSON string) string {
 	var props map[string]any
 	if err := json.Unmarshal([]byte(propsJSON), &props); err != nil {
 		return ""

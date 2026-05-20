@@ -3,12 +3,14 @@ package page
 import (
 	"errors"
 
+	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	DB *gorm.DB
+	DB            *gorm.DB
+	SearchService *search.Service
 }
 
 func NewService(database *gorm.DB) *Service {
@@ -25,6 +27,11 @@ func (s *Service) Create(workspaceID, createdBy uint, title string, parentPageID
 	if err := s.DB.Create(page).Error; err != nil {
 		return nil, err
 	}
+
+	if s.SearchService != nil {
+		s.SearchService.IndexPage(page.ID, page.WorkspaceID, page.Title)
+	}
+
 	return page, nil
 }
 
@@ -44,6 +51,18 @@ func (s *Service) Update(id uint, updates map[string]interface{}) (*db.Page, err
 	if err := s.DB.Model(&page).Updates(updates).Error; err != nil {
 		return nil, err
 	}
+
+	if s.SearchService != nil {
+		var updated db.Page
+		if err := s.DB.First(&updated, id).Error; err == nil {
+			if updated.Archived {
+				s.SearchService.DeletePage(updated.ID)
+			} else {
+				s.SearchService.IndexPage(updated.ID, updated.WorkspaceID, updated.Title)
+			}
+		}
+	}
+
 	return &page, nil
 }
 

@@ -3,13 +3,15 @@ package block
 import (
 	"encoding/json"
 
+	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/bin-ke/my-notion/pkg/position"
 	"gorm.io/gorm"
 )
 
 type Service struct {
-	DB *gorm.DB
+	DB            *gorm.DB
+	SearchService *search.Service
 }
 
 func NewService(database *gorm.DB) *Service {
@@ -47,6 +49,20 @@ func (s *Service) BatchSave(pageID uint, blocks []db.Block) ([]db.Block, error) 
 	}
 
 	tx.Commit()
+
+	// Index blocks for search
+	if s.SearchService != nil {
+		var page db.Page
+		if err := s.DB.First(&page, pageID).Error; err == nil {
+			for _, b := range blocks {
+				text := search.ExtractText(b.Props)
+				if text != "" {
+					s.SearchService.IndexBlock(b.ID, pageID, page.WorkspaceID, b.Type, text)
+				}
+			}
+		}
+	}
+
 	return blocks, nil
 }
 
