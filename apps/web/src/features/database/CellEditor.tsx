@@ -44,6 +44,8 @@ function displayValue(value: any, property: Property): string {
       const ids: number[] = value?.relation ?? [];
       return ids.length === 0 ? "" : `${ids.length} record${ids.length > 1 ? "s" : ""}`;
     }
+    case "rollup":
+      return value?.number != null ? String(value.number) : (value?.text ?? "");
     case "date":
       return value?.date ?? "";
     case "checkbox":
@@ -84,6 +86,8 @@ function buildCommitValue(raw: string, property: Property): any {
       return { multi_select: raw.split(",").map((s) => s.trim()).filter(Boolean) };
     case "relation":
       return null; // relation values come from RelationPicker, not text input
+    case "rollup":
+      return null;
     case "created_time":
     case "last_edited_time":
       return null;
@@ -116,6 +120,8 @@ function editInitialValue(value: any, property: Property): string {
       return (value?.multi_select ?? []).join(", ");
     case "relation":
       return (value?.relation ?? []).map(String).join(", ");
+    case "rollup":
+      return value?.number != null ? String(value.number) : (value?.text ?? "");
     default:
       return "";
   }
@@ -211,7 +217,7 @@ export default function CellEditor({
   }
 
   // ---------- person / files: read-only for now ----------
-  if (property.type === "person" || property.type === "files" || property.type === "created_time" || property.type === "last_edited_time") {
+  if (property.type === "person" || property.type === "files" || property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup") {
     return (
       <div className="text-sm text-gray-400 px-1 py-0.5 select-none">
         {displayValue(value, property) || "—"}
