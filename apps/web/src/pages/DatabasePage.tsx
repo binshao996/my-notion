@@ -5,6 +5,11 @@ import { useDatabaseStore } from "../stores/database";
 import { useViewsStore } from "../stores/views";
 import PageTree from "../features/sidebar/PageTree";
 import TableView from "../features/database/TableView";
+import BoardView from "../features/database/BoardView";
+import CalendarView from "../features/database/CalendarView";
+import GalleryView from "../features/database/GalleryView";
+import ListView from "../features/database/ListView";
+import TimelineView from "../features/database/TimelineView";
 import type { ViewType } from "../types/database";
 
 export default function DatabasePage() {
@@ -231,7 +236,7 @@ export default function DatabasePage() {
                   onChange={(e) => setNewViewName(e.target.value)}
                 />
                 {(
-                  ["table", "board", "calendar", "list", "gallery"] as ViewType[]
+                  ["table", "board", "calendar", "list", "gallery", "timeline"] as ViewType[]
                 ).map((type) => (
                   <button
                     key={type}
@@ -271,28 +276,63 @@ export default function DatabasePage() {
 
         {/* Active view area */}
         <div className="flex-1 overflow-auto">
-          {activeView && activeView.type === "table" ? (
-            <TableView
-              properties={properties}
-              records={records}
-              activeView={activeView || undefined}
-              onUpdateRecord={handleUpdateRecord}
-              onDeleteRecord={deleteRecord}
-              onCreateRecord={handleNewRecord}
-              titlePropertyId={titleProperty?.id}
-            />
-          ) : !activeView ? (
+          {!activeView ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-sm text-gray-400">
                 No view selected. Create a view to get started.
               </div>
             </div>
+          ) : activeView.type === "table" ? (
+            <TableView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              onUpdateRecord={handleUpdateRecord}
+              onDeleteRecord={deleteRecord}
+              onCreateRecord={handleNewRecord}
+              titlePropertyId={titleProperty?.id}
+            />
+          ) : activeView.type === "board" ? (
+            <BoardView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              onUpdateRecord={handleUpdateRecord}
+            />
+          ) : activeView.type === "calendar" ? (
+            <CalendarView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              onUpdateRecord={handleUpdateRecord}
+              titlePropertyId={titleProperty?.id}
+            />
+          ) : activeView.type === "list" ? (
+            <ListView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              titlePropertyId={titleProperty?.id}
+            />
+          ) : activeView.type === "gallery" ? (
+            <GalleryView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              titlePropertyId={titleProperty?.id}
+            />
+          ) : activeView.type === "timeline" ? (
+            <TimelineView
+              properties={properties}
+              records={records}
+              activeView={activeView}
+              onUpdateRecord={handleUpdateRecord}
+              titlePropertyId={titleProperty?.id}
+            />
           ) : (
             <div className="flex items-center justify-center h-full">
               <div className="text-sm text-gray-400">
-                {activeView.type.charAt(0).toUpperCase() +
-                  activeView.type.slice(1)}{" "}
-                view is being built...
+                Unknown view type.
               </div>
             </div>
           )}
