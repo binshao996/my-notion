@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Workspace from "./pages/Workspace";
+import PageView from "./pages/PageView";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -14,6 +15,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Workspace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/page/:pageId"
+        element={
+          <ProtectedRoute>
+            <PageView />
           </ProtectedRoute>
         }
       />
