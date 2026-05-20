@@ -10,6 +10,12 @@ import (
 	databasepkg "github.com/bin-ke/my-notion/internal/database"
 	"github.com/bin-ke/my-notion/internal/file"
 	"github.com/bin-ke/my-notion/internal/page"
+
+	"github.com/bin-ke/my-notion/internal/comment"
+	"github.com/bin-ke/my-notion/internal/notification"
+	"github.com/bin-ke/my-notion/internal/permission"
+	"github.com/bin-ke/my-notion/internal/share"
+
 	"github.com/bin-ke/my-notion/internal/workspace"
 	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/go-chi/chi/v5"
@@ -58,6 +64,19 @@ func main() {
 	recordHandler := databasepkg.NewRecordHandler(recordService, queryService)
 	viewHandler := databasepkg.NewViewHandler(viewService)
 
+	// M3 services
+	permissionService := permission.NewService(database)
+	permissionHandler := permission.NewHandler(permissionService)
+
+	shareService := share.NewService(database)
+	shareHandler := share.NewHandler(shareService)
+
+	notifService := notification.NewService(database)
+	notifHandler := notification.NewHandler(notifService)
+
+	commentService := comment.NewService(database, notifService)
+	commentHandler := comment.NewHandler(commentService)
+
 	// Router
 	r := chi.NewRouter()
 
@@ -77,6 +96,9 @@ func main() {
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
 	})
+
+	// Share token resolution (public, no auth required)
+	r.Get("/api/v1/share/{token}", shareHandler.ResolveToken)
 
 	// Protected routes
 	r.Group(func(r chi.Router) {
@@ -102,6 +124,34 @@ func main() {
 			r.Put("/{pageId}/blocks", blockHandler.BatchSave)
 			r.Post("/{pageId}/blocks/ops", blockHandler.ApplyOps)
 		})
+
+		// Permissions
+		r.Route("/api/v1/pages/{id}/permissions", func(r chi.Router) {
+			r.Get("/", permissionHandler.ListByPage)
+			r.Post("/", permissionHandler.Set)
+			r.Delete("/{permId}", permissionHandler.Remove)
+		})
+
+		// Share tokens
+		r.Route("/api/v1/pages/{id}/share-tokens", func(r chi.Router) {
+			r.Get("/", shareHandler.ListByPage)
+			r.Post("/", shareHandler.Create)
+			r.Delete("/{tokId}", shareHandler.Revoke)
+		})
+
+		// Comments
+		r.Route("/api/v1/pages/{id}/comments", func(r chi.Router) {
+			r.Get("/", commentHandler.ListByPage)
+			r.Post("/", commentHandler.Create)
+		})
+
+		r.Patch("/api/v1/comments/{id}", commentHandler.Update)
+		r.Delete("/api/v1/comments/{id}", commentHandler.Delete)
+
+		// Notifications
+		r.Get("/api/v1/notifications", notifHandler.ListByUser)
+		r.Patch("/api/v1/notifications/read-all", notifHandler.MarkAllRead)
+		r.Patch("/api/v1/notifications/{id}/read", notifHandler.MarkRead)
 
 		// Database routes
 		r.Route("/api/v1/databases", func(r chi.Router) {
