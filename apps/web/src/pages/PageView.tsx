@@ -2,6 +2,8 @@ import { useEffect, useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useEditorStore } from "../features/editor/useEditorStore";
 import { useAuthStore } from "../stores/auth";
+import { useSearchStore } from "../stores/search";
+import { api } from "../lib/api";
 import BlockShell from "../features/editor/BlockShell";
 import CommandPalette from "../features/editor/CommandPalette";
 import PageTree from "../features/sidebar/PageTree";
@@ -15,6 +17,8 @@ export default function PageView() {
   const { pageId } = useParams<{ pageId: string }>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const setWorkspaceId = useSearchStore((s) => s.setActiveWorkspaceId);
+  const openSearch = useSearchStore((s) => s.open);
   const {
     blocks,
     loading,
@@ -37,8 +41,11 @@ export default function PageView() {
   useEffect(() => {
     if (pageId) {
       loadPage(Number(pageId));
+      api.get<{ workspace_id: number }>(`/pages/${pageId}`).then((p) => {
+        if (p?.workspace_id) setWorkspaceId(p.workspace_id);
+      }).catch(() => {});
     }
-  }, [pageId, loadPage]);
+  }, [pageId, loadPage, setWorkspaceId]);
 
   const handleCommandSelect = useCallback(
     (type: string) => {
@@ -166,6 +173,7 @@ export default function PageView() {
           handleCommandSelect={handleCommandSelect}
           closeCommandPalette={closeCommandPalette}
           addBlock={addBlock}
+          openSearch={openSearch}
         />
       </CollaborationProvider>
     </div>
@@ -191,6 +199,7 @@ function EditorArea({
   handleCommandSelect,
   closeCommandPalette,
   addBlock,
+  openSearch,
 }: {
   pageId: number;
   blocks: any[];
@@ -209,6 +218,7 @@ function EditorArea({
   handleCommandSelect: (t: string) => void;
   closeCommandPalette: () => void;
   addBlock: (i: number, t?: string) => void;
+  openSearch: () => void;
 }) {
   const collab = useCollaboration();
 
@@ -223,6 +233,12 @@ function EditorArea({
             onClick={() => setShowComments(!showComments)}
           >
             Comments
+          </button>
+          <button
+            className="rounded px-2 py-0.5 text-xs text-gray-400 hover:text-gray-600"
+            onClick={openSearch}
+          >
+            Search
           </button>
           {collab && (
             <span className={`text-xs ${collab.connected ? "text-green-500" : "text-red-400"}`}>

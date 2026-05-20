@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useAuthStore } from "../stores/auth";
 import { useDatabaseStore } from "../stores/database";
 import { useViewsStore } from "../stores/views";
+import { useSearchStore } from "../stores/search";
 import PageTree from "../features/sidebar/PageTree";
 import ShareMenu from "../features/permissions/ShareMenu";
 import NotificationPopover from "../features/notifications/NotificationPopover";
@@ -20,6 +21,8 @@ export default function DatabasePage() {
 
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const setWorkspaceId = useSearchStore((s) => s.setActiveWorkspaceId);
+  const openSearch = useSearchStore((s) => s.open);
 
   const {
     database,
@@ -52,6 +55,12 @@ export default function DatabasePage() {
       loadDatabase(dbIdNum);
     }
   }, [dbIdNum, loadDatabase]);
+
+  useEffect(() => {
+    if (database?.workspace_id) {
+      setWorkspaceId(database.workspace_id);
+    }
+  }, [database?.workspace_id, setWorkspaceId]);
 
   useEffect(() => {
     if (views.length > 0) {
@@ -221,6 +230,13 @@ export default function DatabasePage() {
           </button>
           <button className="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100">
             Group
+          </button>
+
+          <button
+            className="rounded px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-100"
+            onClick={openSearch}
+          >
+            Search
           </button>
 
           <ShareMenu pageId={database?.page_id || 0} />
