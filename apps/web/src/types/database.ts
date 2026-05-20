@@ -56,7 +56,7 @@ export interface Record {
   created_at: string;
 }
 
-export type ViewType = "table" | "board" | "calendar" | "list" | "gallery";
+export type ViewType = "table" | "board" | "calendar" | "list" | "gallery" | "timeline";
 
 export type FilterOperator =
   | "equals" | "not_equals" | "contains" | "not_contains"

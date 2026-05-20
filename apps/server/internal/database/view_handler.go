@@ -22,6 +22,7 @@ var validViewTypes = map[string]bool{
 	"calendar": true,
 	"list":     true,
 	"gallery":  true,
+	"timeline": true,
 }
 
 func (h *ViewHandler) Create(w http.ResponseWriter, r *http.Request) {
