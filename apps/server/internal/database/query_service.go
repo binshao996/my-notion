@@ -240,6 +240,19 @@ func buildFilterSQL(c filterCondition, propMap map[uint]db.Property) (string, an
 	alias := fmt.Sprintf("fv_%d", c.PropertyID)
 	path := getValuePath(alias, prop.Type)
 
+	if prop.Type == "relation" {
+		switch c.Operator {
+		case "contains":
+			return fmt.Sprintf("(%s)::jsonb @> to_jsonb(?)", path), c.Value
+		case "not_contains":
+			return fmt.Sprintf("NOT ((%s)::jsonb @> to_jsonb(?))", path), c.Value
+		case "is_empty":
+			return fmt.Sprintf("(%s IS NULL OR jsonb_array_length(%s) = 0)", path, path), nil
+		case "is_not_empty":
+			return fmt.Sprintf("(%s IS NOT NULL AND jsonb_array_length(%s) > 0)", path, path), nil
+		}
+	}
+
 	switch c.Operator {
 	case "equals":
 		return fmt.Sprintf("%s = ?", path), c.Value
@@ -340,6 +353,8 @@ func getValuePath(alias string, propType string) string {
 		return fmt.Sprintf("%s.value ->> 'multi_select'", alias)
 	case "date":
 		return fmt.Sprintf("%s.value ->> 'date'", alias)
+	case "relation":
+		return fmt.Sprintf("%s.value -> 'relation'", alias)
 	case "created_time":
 		return "pages.created_at"
 	case "last_edited_time":

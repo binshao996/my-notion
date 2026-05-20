@@ -52,6 +52,18 @@ func (h *PropertyHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Type == "relation" {
+		var cfg struct {
+			DatabaseID uint `json:"database_id"`
+		}
+		if err := json.Unmarshal([]byte(req.Config), &cfg); err != nil || cfg.DatabaseID == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]string{"error": "relation property requires a valid database_id in config"})
+			return
+		}
+	}
+
 	property, err := h.Service.Create(uint(id), req.Name, req.Type, req.Config)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
