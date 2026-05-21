@@ -54,9 +54,10 @@ export default function PageView() {
   useEffect(() => {
     if (pageId) {
       loadPage(Number(pageId));
-      api.get<{ workspace_id: number; cover: string }>(`/pages/${pageId}`).then((p) => {
+      api.get<{ workspace_id: number; cover: string; icon: string }>(`/pages/${pageId}`).then((p) => {
         if (p?.workspace_id) setWorkspaceId(p.workspace_id);
         if (p?.cover) setCoverUrl(p.cover);
+        if (p?.icon) setPageIcon(p.icon);
       }).catch(() => {});
     }
   }, [pageId, loadPage, setWorkspaceId]);
@@ -94,6 +95,7 @@ export default function PageView() {
   const [showComments, setShowComments] = useState(false);
   const [showAIQA, setShowAIQA] = useState(false);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [pageIcon, setPageIcon] = useState<string>("");
 
   if (loading) {
     return (
@@ -211,6 +213,15 @@ export default function PageView() {
           coverUrl={coverUrl}
           onCoverChange={(url: string) => setCoverUrl(url)}
           onCoverRemove={() => setCoverUrl(null)}
+          pageIcon={pageIcon}
+          onIconChange={(emoji: string) => {
+            setPageIcon(emoji);
+            api.patch(`/pages/${pageId}`, { icon: emoji }).catch(() => {});
+          }}
+          onIconRemove={() => {
+            setPageIcon("");
+            api.patch(`/pages/${pageId}`, { icon: "" }).catch(() => {});
+          }}
         />
       </CollaborationProvider>
       {showAIQA && (
@@ -252,6 +263,9 @@ function EditorArea({
   coverUrl,
   onCoverChange,
   onCoverRemove,
+  pageIcon,
+  onIconChange,
+  onIconRemove,
 }: {
   pageId: number;
   blocks: any[];
@@ -283,12 +297,18 @@ function EditorArea({
   coverUrl: string | null;
   onCoverChange: (url: string) => void;
   onCoverRemove: () => void;
+  pageIcon: string;
+  onIconChange: (emoji: string) => void;
+  onIconRemove: () => void;
 }) {
   const collab = useCollaboration();
 
   const [showAIWrite, setShowAIWrite] = useState(false);
   const [selectedText, setSelectedText] = useState("");
   const [aiPanelPos, setAiPanelPos] = useState<{top: number; left: number} | null>(null);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+
+  const COMMON_EMOJIS = ["📄", "📝", "📋", "📌", "📊", "📈", "🗂️", "📁", "🏠", "🚀", "⭐", "💡", "🔥", "🎯", "✅", "📅", "🔔", "💬", "🛠️", "🧩", "📚", "🎨", "🧪", "🔬", "💻", "🎮", "🎵", "🏗️"];
 
   const handleFileUploaded = useCallback(
     (url: string, fileName: string) => {
@@ -413,6 +433,63 @@ function EditorArea({
         onChange={onCoverChange}
         onRemove={onCoverRemove}
       />
+
+      {/* Page icon */}
+      <div className="px-24 pt-4">
+        <div className="mx-auto max-w-3xl relative">
+          {pageIcon ? (
+            <div className="group inline-flex items-center gap-2">
+              <span className="text-5xl leading-none select-none">{pageIcon}</span>
+              <button
+                onClick={() => onIconRemove()}
+                className="opacity-0 group-hover:opacity-100 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 transition-opacity"
+              >
+                Remove
+              </button>
+              <button
+                onClick={() => setIconPickerOpen(!iconPickerOpen)}
+                className="opacity-0 group-hover:opacity-100 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-200 transition-opacity"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIconPickerOpen(true)}
+              className="text-sm text-gray-400 hover:text-gray-600 border border-dashed border-gray-300 rounded px-3 py-1 hover:border-gray-400"
+            >
+              + Add icon
+            </button>
+          )}
+          {iconPickerOpen && (
+            <div className="absolute left-0 top-full z-50 mt-1 rounded border border-gray-200 bg-white p-2 shadow-lg w-64">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500">Choose icon</span>
+                <button
+                  onClick={() => setIconPickerOpen(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {COMMON_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => {
+                      onIconChange(emoji);
+                      setIconPickerOpen(false);
+                    }}
+                    className="flex h-8 w-8 items-center justify-center rounded text-lg hover:bg-gray-100"
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Block editor */}
       <div

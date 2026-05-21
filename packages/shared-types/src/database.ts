@@ -13,7 +13,8 @@ export type PropertyType =
   | "title" | "text" | "number" | "select"
   | "multi_select" | "status" | "date" | "person"
   | "files" | "checkbox" | "url" | "email" | "phone"
-  | "relation" | "rollup" | "formula" | "created_time" | "last_edited_time";
+  | "relation" | "rollup" | "formula" | "created_time" | "last_edited_time"
+  | "created_by" | "last_edited_by";
 
 export interface SelectOption {
   id: string;

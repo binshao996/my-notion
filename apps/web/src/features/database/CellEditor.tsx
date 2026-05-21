@@ -70,6 +70,9 @@ function displayValue(value: any, property: Property): string {
     case "created_time":
     case "last_edited_time":
       return value?.date ? new Date(value.date).toLocaleDateString() : "";
+    case "created_by":
+    case "last_edited_by":
+      return value?.name ?? "—";
     default:
       return String(value);
   }
@@ -108,6 +111,8 @@ function buildCommitValue(raw: string, property: Property): any {
       return null; // person values come from a picker, not text input
     case "created_time":
     case "last_edited_time":
+    case "created_by":
+    case "last_edited_by":
       return null;
     case "files":
       return null; // files editing handled by FilesCellEditor directly
@@ -144,6 +149,9 @@ function editInitialValue(value: any, property: Property): string {
       return value?.number != null ? String(value.number) : (value?.text ?? "");
     case "formula":
       return value?.number != null ? String(value.number) : (value?.text ?? "");
+    case "created_by":
+    case "last_edited_by":
+      return value?.name ?? "";
     default:
       return "";
   }
@@ -502,8 +510,8 @@ export default function CellEditor({
     );
   }
 
-  // ---------- created_time / last_edited_time / rollup / formula: read-only ----------
-  if (property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup" || property.type === "formula") {
+  // ---------- created_time / last_edited_time / created_by / last_edited_by / rollup / formula: read-only ----------
+  if (property.type === "created_time" || property.type === "last_edited_time" || property.type === "created_by" || property.type === "last_edited_by" || property.type === "rollup" || property.type === "formula") {
     return (
       <div className="text-sm text-gray-400 px-1 py-0.5 select-none">
         {displayValue(value, property) || "—"}
