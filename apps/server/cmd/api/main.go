@@ -159,7 +159,8 @@ func main() {
 		// Initialize Milvus vector store for hybrid RAG search.
 		// Graceful degradation: if Milvus is unreachable, log warning and
 		// fall back to keyword-only search.
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 		vectorStore, vsErr := ai.NewVectorStore(ctx, aiConfig.MilvusAddr, aiConfig.EmbeddingDim)
 		if vsErr != nil {
 			log.Printf("WARNING: Milvus unavailable at %s, RAG will use keyword-only search: %v",
