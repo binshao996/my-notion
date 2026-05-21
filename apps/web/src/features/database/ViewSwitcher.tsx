@@ -16,6 +16,7 @@ const VIEW_TYPES: { type: ViewType; label: string }[] = [
   { type: "calendar", label: "Calendar" },
   { type: "list", label: "List" },
   { type: "gallery", label: "Gallery" },
+  { type: "timeline", label: "Timeline" },
 ];
 
 export default function ViewSwitcher({

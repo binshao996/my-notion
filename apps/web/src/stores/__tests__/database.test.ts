@@ -14,8 +14,8 @@ const mockProperty = {
   id: 1,
   database_id: 1,
   name: "Status",
-  type: "status",
-  config: "{}",
+  type: "status" as const,
+  config: {} as any,
   position: "a0",
   created_at: "",
 };
@@ -24,8 +24,8 @@ const mockProperty2 = {
   id: 2,
   database_id: 1,
   name: "Priority",
-  type: "select",
-  config: "{}",
+  type: "select" as const,
+  config: {} as any,
   position: "a1",
   created_at: "",
 };
@@ -52,8 +52,8 @@ const mockView = {
   id: 1,
   database_id: 1,
   name: "Table View",
-  type: "table",
-  config: "{}",
+  type: "table" as const,
+  config: {} as any,
   position: "a0",
   created_at: "",
   updated_at: "",
@@ -88,7 +88,7 @@ describe("useDatabaseStore", () => {
       new Response(
         JSON.stringify({
           database: mockDatabase,
-          properties: [mockProperty],
+          properties: [mockProperty as any],
           views: [mockView],
           records: [mockRecord],
         }),
@@ -149,7 +149,7 @@ describe("useDatabaseStore", () => {
   it("deleteDatabase calls DELETE and clears database, properties, records, views", async () => {
     useDatabaseStore.setState({
       database: mockDatabase,
-      properties: [mockProperty],
+      properties: [mockProperty as any],
       records: [mockRecord],
       views: [mockView],
     });
@@ -292,7 +292,7 @@ describe("useDatabaseStore", () => {
             { record_id: 1, property_id: 2, value: "42" },
             { record_id: 1, property_id: 3, value: true },
           ],
-          properties: [mockProperty],
+          properties: [mockProperty as any],
         }),
         { status: 200 },
       ),
@@ -302,10 +302,10 @@ describe("useDatabaseStore", () => {
     const result = await useDatabaseStore.getState().loadRecord(1);
 
     // String JSON values should be parsed into objects/numbers
-    expect(result.record.property_values[0].value).toEqual({ title: "Hello World" });
-    expect(result.record.property_values[1].value).toBe(42);
+    expect(result.record.property_values![0].value).toEqual({ title: "Hello World" });
+    expect(result.record.property_values![1].value).toBe(42);
     // Non-string values pass through unchanged
-    expect(result.record.property_values[2].value).toBe(true);
+    expect(result.record.property_values![2].value).toBe(true);
     expect(result.properties).toEqual([mockProperty]);
 
     // JSON.parse must have been called with the string values
