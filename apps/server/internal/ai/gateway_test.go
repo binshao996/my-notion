@@ -122,7 +122,7 @@ func TestTokenBucket_RefillNeverExceedsCapacity(t *testing.T) {
 }
 
 func TestTokenBucket_ConcurrentAccess(t *testing.T) {
-	tb := newTokenBucket(100, 60000) // 100 capacity, 1000/sec
+	tb := newTokenBucket(100, 0) // 100 capacity, no refill during test
 	var wg sync.WaitGroup
 	success := make([]bool, 150)
 	for i := 0; i < 150; i++ {
