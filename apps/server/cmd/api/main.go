@@ -21,6 +21,7 @@ import (
 	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/internal/workspace"
 	"github.com/bin-ke/my-notion/pkg/db"
+	myredis "github.com/bin-ke/my-notion/pkg/redis"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 )
@@ -36,6 +37,16 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
+	// Redis connection (non-fatal if unavailable)
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "redis://localhost:6379"
+	}
+	rdb, redisErr := myredis.Connect(redisAddr)
+	if redisErr != nil {
+		log.Printf("WARNING: redis not available (caching and async search disabled): %v", redisErr)
+	}
+
 	// File service (non-fatal if MinIO is down)
 	fileService, fileErr := file.NewService()
 	if fileErr != nil {
@@ -46,8 +57,10 @@ func main() {
 	authService := auth.NewService(database)
 	authHandler := auth.NewHandler(authService)
 
+	notifService := notification.NewService(database)
+
 	workspaceService := workspace.NewService(database)
-	workspaceHandler := workspace.NewHandler(workspaceService)
+	workspaceHandler := workspace.NewHandler(workspaceService, notifService)
 
 	pageService := page.NewService(database)
 	pageHandler := page.NewHandler(pageService)
@@ -69,12 +82,15 @@ func main() {
 
 	// M3 services
 	permissionService := permission.NewService(database)
+	if rdb != nil {
+		permissionService.SetRedisClient(rdb)
+	}
 	permissionHandler := permission.NewHandler(permissionService)
 
 	shareService := share.NewService(database)
 	shareHandler := share.NewHandler(shareService)
+	shareHandler.NotificationService = notifService
 
-	notifService := notification.NewService(database)
 	notifHandler := notification.NewHandler(notifService)
 
 	commentService := comment.NewService(database, notifService)
@@ -91,7 +107,7 @@ func main() {
 		log.Printf("WARNING: failed to load collaboration snapshots: %v", err)
 	}
 
-	// Wire hub → docstore persistence
+	// Wire hub -> docstore persistence
 	collabHub.SetOnUpdate(func(pageID uint, data []byte) {
 		collabDocStore.AppendUpdate(pageID, data)
 	})
@@ -107,6 +123,11 @@ func main() {
 	if searchErr != nil {
 		log.Printf("WARNING: search service not available: %v", searchErr)
 	} else {
+		// Wire Redis for async search indexing (if available)
+		if rdb != nil {
+			searchService.RedisClient = rdb
+			log.Println("search: async indexing via Redis queue enabled")
+		}
 		pageService.SearchService = searchService
 		blockService.SearchService = searchService
 		recordService.SearchService = searchService
@@ -149,10 +170,15 @@ func main() {
 			r.Get("/", workspaceHandler.List)
 			r.Get("/{id}", workspaceHandler.Get)
 			r.Get("/{id}/tree", pageHandler.GetTree)
+			r.Patch("/{id}", workspaceHandler.Update)
+			r.Delete("/{id}", workspaceHandler.Delete)
+			r.Get("/{id}/members", workspaceHandler.ListMembers)
+			r.Post("/{id}/members", workspaceHandler.AddMember)
+			r.Delete("/{id}/members/{memberId}", workspaceHandler.RemoveMember)
 		})
 
 		r.Route("/api/v1/pages", func(r chi.Router) {
-			// Create page — workspace membership checked in handler
+			// Create page -- workspace membership checked in handler
 			r.Post("/", pageHandler.Create)
 
 			// Viewer-level access for reads

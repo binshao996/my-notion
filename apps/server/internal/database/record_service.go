@@ -167,6 +167,16 @@ func (s *RecordService) Update(id uint, propertyValues map[uint]string) error {
 	return nil
 }
 
+// LastEditedBy returns a display string for who last edited a record.
+// Currently returns "Unknown" since per-record edit tracking is not yet implemented.
+func (s *RecordService) LastEditedBy(recordID uint) string {
+	if recordID == 0 {
+		return "—"
+	}
+	// TODO: Track per-record edit user when audit logging is added
+	return "Unknown"
+}
+
 func (s *RecordService) Delete(id uint) error {
 	tx := s.DB.Begin()
 

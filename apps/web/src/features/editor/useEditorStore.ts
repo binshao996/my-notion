@@ -18,12 +18,14 @@ interface EditorState {
   error: string | null;
   commandPaletteIndex: number | null; // which block shows the / menu
   focusedBlockIndex: number;
+  selectedBlockIndices: number[];
 
   loadPage: (pageId: number) => Promise<void>;
   addBlock: (afterIndex: number, type?: string) => void;
   updateBlock: (index: number, props: Record<string, any>) => void;
   updateBlockType: (index: number, newType: string) => void;
   deleteBlock: (index: number) => void;
+  deleteSelectedBlocks: () => void;
   duplicateBlock: (index: number) => void;
   moveBlock: (fromIndex: number, toIndex: number) => void;
   indentBlock: (index: number) => void;
@@ -32,6 +34,9 @@ interface EditorState {
   openCommandPalette: (index: number) => void;
   closeCommandPalette: () => void;
   focusBlock: (index: number) => void;
+  toggleBlockSelect: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
+  selectBlockRange: (from: number, to: number) => void;
+  clearBlockSelection: () => void;
 }
 
 let tempIdCounter = 0;
@@ -58,6 +63,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   error: null,
   commandPaletteIndex: null,
   focusedBlockIndex: 0,
+  selectedBlockIndices: [],
 
   loadPage: async (pageId: number) => {
     set({ loading: true, error: null });
@@ -114,6 +120,73 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const newBlocks = blocks.filter((_, i) => i !== index);
     const newFocus = Math.min(index, newBlocks.length - 1);
     set({ blocks: newBlocks, dirty: true, focusedBlockIndex: newFocus });
+  },
+
+  deleteSelectedBlocks: () => {
+    const { blocks, selectedBlockIndices } = get();
+    if (selectedBlockIndices.length === 0) return;
+    if (blocks.length <= selectedBlockIndices.length) return; // keep at least one block
+
+    const indicesSet = new Set(selectedBlockIndices);
+    const newBlocks = blocks.filter((_, i) => !indicesSet.has(i));
+    const newFocus = Math.min(Math.min(...selectedBlockIndices), newBlocks.length - 1);
+    set({
+      blocks: newBlocks,
+      dirty: true,
+      focusedBlockIndex: newFocus,
+      selectedBlockIndices: [],
+    });
+  },
+
+  toggleBlockSelect: (index, shiftKey, ctrlKey) => {
+    const { selectedBlockIndices, focusedBlockIndex, blocks } = get();
+
+    if (index < 0 || index >= blocks.length) return;
+
+    if (shiftKey) {
+      // Range select from last focused/selected block to this one
+      const anchor = selectedBlockIndices.length > 0
+        ? selectedBlockIndices[selectedBlockIndices.length - 1]
+        : focusedBlockIndex;
+      const [from, to] = anchor < index ? [anchor, index] : [index, anchor];
+      const rangeSet = new Set<number>();
+      for (let i = from; i <= to; i++) {
+        rangeSet.add(i);
+      }
+      set({ selectedBlockIndices: Array.from(rangeSet), focusedBlockIndex: index });
+    } else if (ctrlKey) {
+      // Toggle individual selection
+      const already = selectedBlockIndices.indexOf(index);
+      if (already >= 0) {
+        set({
+          selectedBlockIndices: selectedBlockIndices.filter((i) => i !== index),
+          focusedBlockIndex: index,
+        });
+      } else {
+        set({
+          selectedBlockIndices: [...selectedBlockIndices, index],
+          focusedBlockIndex: index,
+        });
+      }
+    } else {
+      // Single select + clear previous
+      set({ selectedBlockIndices: [index], focusedBlockIndex: index });
+    }
+  },
+
+  selectBlockRange: (from, to) => {
+    if (from < 0 || to < 0) return;
+    const start = Math.min(from, to);
+    const end = Math.max(from, to);
+    const range: number[] = [];
+    for (let i = start; i <= end; i++) {
+      range.push(i);
+    }
+    set({ selectedBlockIndices: range });
+  },
+
+  clearBlockSelection: () => {
+    set({ selectedBlockIndices: [] });
   },
 
   duplicateBlock: (index) => {

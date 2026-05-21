@@ -12,12 +12,14 @@ import CommentThread from "../features/comments/CommentThread";
 import NotificationPopover from "../features/notifications/NotificationPopover";
 import CollaborationProvider, { useCollaboration } from "../features/collaboration/CollaborationProvider";
 import AwarenessCursors from "../features/collaboration/AwarenessCursors";
+import FileUploadButton from "../features/editor/FileUploadButton";
 
 export default function PageView() {
   const { pageId } = useParams<{ pageId: string }>();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const setWorkspaceId = useSearchStore((s) => s.setActiveWorkspaceId);
+  const activeWorkspaceId = useSearchStore((s) => s.activeWorkspaceId);
   const openSearch = useSearchStore((s) => s.open);
   const {
     blocks,
@@ -26,16 +28,23 @@ export default function PageView() {
     dirty,
     error,
     commandPaletteIndex,
+    focusedBlockIndex,
+    selectedBlockIndices,
     loadPage,
     addBlock,
     updateBlock,
     updateBlockType,
     deleteBlock,
+    deleteSelectedBlocks,
     duplicateBlock,
+    moveBlock,
+    focusBlock,
     indentBlock,
     outdentBlock,
     openCommandPalette,
     closeCommandPalette,
+    toggleBlockSelect,
+    clearBlockSelection,
   } = useEditorStore();
 
   useEffect(() => {
@@ -165,6 +174,7 @@ export default function PageView() {
           handleUpdate={handleUpdate}
           updateBlockType={updateBlockType}
           deleteBlock={deleteBlock}
+          deleteSelectedBlocks={deleteSelectedBlocks}
           duplicateBlock={duplicateBlock}
           handleAddAfter={handleAddAfter}
           indentBlock={indentBlock}
@@ -173,7 +183,15 @@ export default function PageView() {
           handleCommandSelect={handleCommandSelect}
           closeCommandPalette={closeCommandPalette}
           addBlock={addBlock}
+          updateBlock={updateBlock}
           openSearch={openSearch}
+          moveBlock={moveBlock}
+          focusBlock={focusBlock}
+          focusedBlockIndex={focusedBlockIndex}
+          selectedBlockIndices={selectedBlockIndices}
+          toggleBlockSelect={toggleBlockSelect}
+          clearBlockSelection={clearBlockSelection}
+          workspaceId={activeWorkspaceId}
         />
       </CollaborationProvider>
     </div>
@@ -191,6 +209,7 @@ function EditorArea({
   handleUpdate,
   updateBlockType,
   deleteBlock,
+  deleteSelectedBlocks,
   duplicateBlock,
   handleAddAfter,
   indentBlock,
@@ -199,7 +218,15 @@ function EditorArea({
   handleCommandSelect,
   closeCommandPalette,
   addBlock,
+  updateBlock,
   openSearch,
+  moveBlock,
+  focusBlock,
+  focusedBlockIndex,
+  selectedBlockIndices,
+  toggleBlockSelect,
+  clearBlockSelection,
+  workspaceId,
 }: {
   pageId: number;
   blocks: any[];
@@ -210,6 +237,7 @@ function EditorArea({
   handleUpdate: (i: number, props: Record<string, any>) => void;
   updateBlockType: (i: number, t: string) => void;
   deleteBlock: (i: number) => void;
+  deleteSelectedBlocks: () => void;
   duplicateBlock: (i: number) => void;
   handleAddAfter: (i: number) => void;
   indentBlock: (i: number) => void;
@@ -218,9 +246,65 @@ function EditorArea({
   handleCommandSelect: (t: string) => void;
   closeCommandPalette: () => void;
   addBlock: (i: number, t?: string) => void;
+  updateBlock: (i: number, props: Record<string, any>) => void;
   openSearch: () => void;
+  moveBlock: (from: number, to: number) => void;
+  focusBlock: (index: number) => void;
+  focusedBlockIndex: number;
+  selectedBlockIndices: number[];
+  toggleBlockSelect: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
+  clearBlockSelection: () => void;
+  workspaceId: number | null;
 }) {
   const collab = useCollaboration();
+
+  const handleFileUploaded = useCallback(
+    (url: string, fileName: string) => {
+      const isImage = /\.(png|jpe?g|gif|svg|webp|bmp)$/i.test(fileName);
+      const blockType = isImage ? "image" : "file";
+      const blockProps = isImage ? { url } : { url, name: fileName };
+      // addBlock inserts a new block after the focused index and sets dirty
+      addBlock(focusedBlockIndex, blockType);
+      // The new block is at index focusedBlockIndex + 1
+      updateBlock(focusedBlockIndex + 1, blockProps);
+    },
+    [addBlock, focusedBlockIndex, updateBlock]
+  );
+
+  // Keyboard handlers: Ctrl+Shift+Arrow to move blocks, Delete for multi-select
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      // Delete key: delete selected blocks if multi-select is active
+      if (e.key === "Delete" || (e.key === "Backspace" && (e.ctrlKey || e.metaKey))) {
+        if (selectedBlockIndices.length > 0) {
+          e.preventDefault();
+          deleteSelectedBlocks();
+          return;
+        }
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+        if (e.key === "ArrowUp" && focusedBlockIndex > 0) {
+          e.preventDefault();
+          moveBlock(focusedBlockIndex, focusedBlockIndex - 1);
+        } else if (e.key === "ArrowDown" && focusedBlockIndex < blocks.length - 1) {
+          e.preventDefault();
+          moveBlock(focusedBlockIndex, focusedBlockIndex + 1);
+        }
+      }
+    },
+    [focusedBlockIndex, blocks.length, moveBlock, selectedBlockIndices, deleteSelectedBlocks]
+  );
+
+  // Click on empty container space to clear selection
+  const handleContainerClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (e.target === e.currentTarget) {
+        clearBlockSelection();
+      }
+    },
+    [clearBlockSelection]
+  );
 
   return (
     <main className="flex flex-1 flex-col">
@@ -240,6 +324,7 @@ function EditorArea({
           >
             Search
           </button>
+          <FileUploadButton onUploaded={handleFileUploaded} />
           {collab && (
             <span className={`text-xs ${collab.connected ? "text-green-500" : "text-red-400"}`}>
               {collab.connected ? "Live" : "Offline"}
@@ -254,33 +339,61 @@ function EditorArea({
       </div>
 
       {/* Block editor */}
-      <div className="flex-1 overflow-y-auto px-24 py-8 relative">
+      <div
+        className="flex-1 overflow-y-auto px-24 py-8 relative"
+        onKeyDown={handleKeyDown}
+        onClick={handleContainerClick}
+      >
         <AwarenessCursors />
         <div className="mx-auto max-w-3xl">
-          {blocks.map((block, i) => (
-            <div key={block.tempId || block.id || i} className="relative">
-              <BlockShell
-                block={block}
-                index={i}
-                onUpdate={handleUpdate}
-                onChangeType={updateBlockType}
-                onDelete={deleteBlock}
-                onDuplicate={duplicateBlock}
-                onAddAfter={handleAddAfter}
-                onIndent={indentBlock}
-                onOutdent={outdentBlock}
-                ydoc={collab?.ydoc ?? null}
-                awareness={collab?.awareness ?? null}
-              />
-              {commandPaletteIndex === i && (
-                <CommandPalette
-                  isOpen={true}
-                  onSelect={handleCommandSelect}
-                  onClose={closeCommandPalette}
+          {blocks.map((block, i) => {
+            const isSelected = selectedBlockIndices.includes(i);
+            return (
+              <div
+                key={block.tempId || block.id || i}
+                className="relative"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBlockSelect(i, e.shiftKey, e.ctrlKey || e.metaKey);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+                  if (!isNaN(fromIndex) && fromIndex !== i) {
+                    moveBlock(fromIndex, i);
+                  }
+                }}
+              >
+                <BlockShell
+                  block={block}
+                  index={i}
+                  isSelected={isSelected}
+                  onUpdate={handleUpdate}
+                  onChangeType={updateBlockType}
+                  onDelete={deleteBlock}
+                  onDuplicate={duplicateBlock}
+                  onAddAfter={handleAddAfter}
+                  onIndent={indentBlock}
+                  onOutdent={outdentBlock}
+                  onFocus={focusBlock}
+                  ydoc={collab?.ydoc ?? null}
+                  awareness={collab?.awareness ?? null}
+                  workspaceId={workspaceId ?? null}
                 />
-              )}
-            </div>
-          ))}
+                {commandPaletteIndex === i && (
+                  <CommandPalette
+                    isOpen={true}
+                    onSelect={handleCommandSelect}
+                    onClose={closeCommandPalette}
+                  />
+                )}
+              </div>
+            );
+          })}
 
           {blocks.length === 0 && (
             <button

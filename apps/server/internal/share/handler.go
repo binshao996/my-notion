@@ -7,11 +7,14 @@ import (
 	"time"
 
 	"github.com/bin-ke/my-notion/internal/auth"
+	"github.com/bin-ke/my-notion/internal/notification"
+	"github.com/bin-ke/my-notion/pkg/db"
 	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
-	Service *Service
+	Service             *Service
+	NotificationService *notification.Service
 }
 
 func NewHandler(service *Service) *Handler {
@@ -83,6 +86,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notify page members about the share token creation
+	if h.NotificationService != nil {
+		go h.notifyPageMembers(uint(pageID), claims.UserID)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(token)
@@ -134,4 +142,21 @@ func (h *Handler) ResolveToken(w http.ResponseWriter, r *http.Request) {
 		"blocks": blocks,
 		"role":   token.Role,
 	})
+}
+
+// notifyPageMembers sends a "share" notification to all page members except the actor.
+func (h *Handler) notifyPageMembers(pageID uint, actorID uint) {
+	var perms []db.PagePermission
+	h.Service.DB.Where("page_id = ?", pageID).Find(&perms)
+	for _, perm := range perms {
+		if perm.SubjectID != actorID {
+			h.NotificationService.Create(
+				perm.SubjectID,
+				"share",
+				actorID,
+				pageID,
+				nil,
+			)
+		}
+	}
 }

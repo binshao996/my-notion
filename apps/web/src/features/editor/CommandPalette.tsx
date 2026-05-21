@@ -23,6 +23,12 @@ const commands: CommandItem[] = [
   { type: "code", label: "Code", icon: "</>", category: "Basic" },
   // Media
   { type: "image", label: "Image", icon: "🖼", category: "Media" },
+  { type: "file", label: "File", icon: "📎", category: "Media" },
+  { type: "bookmark", label: "Bookmark", icon: "🔖", category: "Media" },
+  // Advanced
+  { type: "equation", label: "Equation", icon: "𝑓", category: "Advanced" },
+  { type: "table_of_contents", label: "Table of Contents", icon: "§", category: "Advanced" },
+  { type: "columns", label: "Columns", icon: "▦", category: "Advanced" },
 ];
 
 interface CommandPaletteProps {

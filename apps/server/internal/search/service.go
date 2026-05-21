@@ -10,14 +10,17 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bin-ke/my-notion/pkg/queue"
 	"github.com/opensearch-project/opensearch-go/v2"
 	"github.com/opensearch-project/opensearch-go/v2/opensearchapi"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 // Service wraps the OpenSearch client for indexing and searching.
 type Service struct {
-	client *opensearch.Client
+	client      *opensearch.Client
+	RedisClient *redis.Client
 }
 
 // SearchResults holds grouped search results.
@@ -138,7 +141,12 @@ func (s *Service) EnsureIndices() error {
 }
 
 // IndexPage indexes or updates a page document.
+// When RedisClient is set, the job is enqueued for async processing instead of
+// indexing directly. The worker will pick it up and perform the actual indexing.
 func (s *Service) IndexPage(pageID, workspaceID uint, title string) error {
+	if s.RedisClient != nil {
+		return queue.EnqueueSearchIndex(s.RedisClient, "page", pageID)
+	}
 	body := map[string]any{
 		"title":        title,
 		"workspace_id": workspaceID,
@@ -152,7 +160,11 @@ func (s *Service) DeletePage(pageID uint) error {
 }
 
 // IndexBlock indexes or updates a block document.
+// When RedisClient is set, the job is enqueued for async processing.
 func (s *Service) IndexBlock(blockID, pageID, workspaceID uint, blockType, text string) error {
+	if s.RedisClient != nil {
+		return queue.EnqueueSearchIndex(s.RedisClient, "block", blockID)
+	}
 	body := map[string]any{
 		"text":         text,
 		"page_id":      pageID,
@@ -168,7 +180,11 @@ func (s *Service) DeleteBlock(blockID uint) error {
 }
 
 // IndexRecord indexes or updates a database record document.
+// When RedisClient is set, the job is enqueued for async processing.
 func (s *Service) IndexRecord(recordID, databaseID, workspaceID uint, title, propertyText string) error {
+	if s.RedisClient != nil {
+		return queue.EnqueueSearchIndex(s.RedisClient, "record", recordID)
+	}
 	body := map[string]any{
 		"title":           title,
 		"property_values": propertyText,

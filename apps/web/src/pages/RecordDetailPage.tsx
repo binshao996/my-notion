@@ -9,6 +9,7 @@ import CommandPalette from "../features/editor/CommandPalette";
 import type { Property } from "../types/database";
 import ShareMenu from "../features/permissions/ShareMenu";
 import CommentThread from "../features/comments/CommentThread";
+import FileUploadButton from "../features/editor/FileUploadButton";
 
 export default function RecordDetailPage() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -23,6 +24,7 @@ export default function RecordDetailPage() {
     dirty,
     error: editorError,
     commandPaletteIndex,
+    focusedBlockIndex,
     loadPage,
     addBlock,
     updateBlock,
@@ -97,6 +99,17 @@ export default function RecordDetailPage() {
       addBlock(index, "paragraph");
     },
     [addBlock]
+  );
+
+  const handleFileUploaded = useCallback(
+    (url: string, fileName: string) => {
+      const isImage = /\.(png|jpe?g|gif|svg|webp|bmp)$/i.test(fileName);
+      const blockType = isImage ? "image" : "file";
+      const blockProps = isImage ? { url } : { url, name: fileName };
+      addBlock(focusedBlockIndex, blockType);
+      updateBlock(focusedBlockIndex + 1, blockProps);
+    },
+    [addBlock, updateBlock, focusedBlockIndex]
   );
 
   // Helper to render a property value for display
@@ -214,10 +227,13 @@ export default function RecordDetailPage() {
           <ShareMenu pageId={pageId || 0} />
         </div>
         {/* Save status bar */}
-        <div className="flex items-center justify-end gap-2 border-b border-gray-100 px-6 py-1">
-          {saving && <span className="text-xs text-gray-400">Saving...</span>}
-          {dirty && !saving && <span className="text-xs text-gray-300">Unsaved</span>}
-          {!dirty && !saving && <span className="text-xs text-gray-300">Saved</span>}
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-1">
+          <FileUploadButton onUploaded={handleFileUploaded} />
+          <div className="flex items-center gap-2">
+            {saving && <span className="text-xs text-gray-400">Saving...</span>}
+            {dirty && !saving && <span className="text-xs text-gray-300">Unsaved</span>}
+            {!dirty && !saving && <span className="text-xs text-gray-300">Saved</span>}
+          </div>
         </div>
 
         {/* Properties section */}
@@ -250,6 +266,7 @@ export default function RecordDetailPage() {
                   onAddAfter={handleAddAfter}
                   onIndent={indentBlock}
                   onOutdent={outdentBlock}
+                  onFocus={() => {}}
                 />
                 {commandPaletteIndex === i && (
                   <CommandPalette
