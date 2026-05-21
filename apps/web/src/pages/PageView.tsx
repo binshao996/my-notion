@@ -13,6 +13,9 @@ import NotificationPopover from "../features/notifications/NotificationPopover";
 import CollaborationProvider, { useCollaboration } from "../features/collaboration/CollaborationProvider";
 import AwarenessCursors from "../features/collaboration/AwarenessCursors";
 import FileUploadButton from "../features/editor/FileUploadButton";
+import AIWritingPanel from "../features/ai/AIWritingPanel";
+import AIQAModal from "../features/ai/AIQAModal";
+import type { AIBlock } from "../features/ai/types";
 
 export default function PageView() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -87,6 +90,7 @@ export default function PageView() {
   );
 
   const [showComments, setShowComments] = useState(false);
+  const [showAIQA, setShowAIQA] = useState(false);
 
   if (loading) {
     return (
@@ -96,6 +100,9 @@ export default function PageView() {
             <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
             <div className="flex items-center gap-1">
               <NotificationPopover />
+              <button onClick={() => setShowAIQA(true)} className="text-xs text-purple-400 hover:text-purple-600" title="Ask AI (Cmd+J)">
+                ✨ AI
+              </button>
               <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
                 Sign out
               </button>
@@ -120,6 +127,9 @@ export default function PageView() {
             <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
             <div className="flex items-center gap-1">
               <NotificationPopover />
+              <button onClick={() => setShowAIQA(true)} className="text-xs text-purple-400 hover:text-purple-600" title="Ask AI (Cmd+J)">
+                ✨ AI
+              </button>
               <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
                 Sign out
               </button>
@@ -152,6 +162,9 @@ export default function PageView() {
           <span className="text-sm font-semibold text-gray-900">{user?.name || "User"}'s Notion</span>
           <div className="flex items-center gap-1">
             <NotificationPopover />
+            <button onClick={() => setShowAIQA(true)} className="text-xs text-purple-400 hover:text-purple-600" title="Ask AI (Cmd+J)">
+              ✨ AI
+            </button>
             <button onClick={logout} className="text-xs text-gray-400 hover:text-gray-600">
               Sign out
             </button>
@@ -194,6 +207,9 @@ export default function PageView() {
           workspaceId={activeWorkspaceId}
         />
       </CollaborationProvider>
+      {showAIQA && (
+        <AIQAModal isOpen={showAIQA} onClose={() => setShowAIQA(false)} workspaceId={activeWorkspaceId} />
+      )}
     </div>
   );
 }
@@ -258,6 +274,10 @@ function EditorArea({
 }) {
   const collab = useCollaboration();
 
+  const [showAIWrite, setShowAIWrite] = useState(false);
+  const [selectedText, setSelectedText] = useState("");
+  const [aiPanelPos, setAiPanelPos] = useState<{top: number; left: number} | null>(null);
+
   const handleFileUploaded = useCallback(
     (url: string, fileName: string) => {
       const isImage = /\.(png|jpe?g|gif|svg|webp|bmp)$/i.test(fileName);
@@ -306,6 +326,42 @@ function EditorArea({
     [clearBlockSelection]
   );
 
+  // Capture text selection for AI writing
+  const handleMouseUp = useCallback(
+    () => {
+      setTimeout(() => {
+        const selection = window.getSelection();
+        const text = selection?.toString().trim();
+        if (text && text.length > 0) {
+          setSelectedText(text);
+          const range = selection?.getRangeAt(0);
+          const rect = range?.getBoundingClientRect();
+          if (rect) {
+            setAiPanelPos({
+              top: rect.bottom + 6,
+              left: rect.left + rect.width / 2 - 28,
+            });
+          }
+        }
+      }, 0);
+    },
+    []
+  );
+
+  // Clear selection float when clicking elsewhere
+  useEffect(() => {
+    if (!selectedText) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".ai-float-btn")) {
+        setSelectedText("");
+        setAiPanelPos(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [selectedText]);
+
   return (
     <main className="flex flex-1 flex-col">
       {/* Save status bar */}
@@ -343,6 +399,7 @@ function EditorArea({
         className="flex-1 overflow-y-auto px-24 py-8 relative"
         onKeyDown={handleKeyDown}
         onClick={handleContainerClick}
+        onMouseUp={handleMouseUp}
       >
         <AwarenessCursors />
         <div className="mx-auto max-w-3xl">
@@ -405,6 +462,40 @@ function EditorArea({
           )}
         </div>
       </div>
+
+      {/* Floating AI sparkle button near text selection */}
+      {selectedText && aiPanelPos && !showAIWrite && (
+        <button
+          className="ai-float-btn fixed z-50 rounded-full bg-purple-600 px-3 py-1 text-xs font-medium text-white shadow-lg hover:bg-purple-700 transition-colors"
+          style={{ top: aiPanelPos.top, left: aiPanelPos.left }}
+          onClick={() => setShowAIWrite(true)}
+        >
+          ✨ AI
+        </button>
+      )}
+
+      {/* AI Writing Panel */}
+      {showAIWrite && (
+        <AIWritingPanel
+          isOpen={showAIWrite}
+          onClose={() => {
+            setShowAIWrite(false);
+            setSelectedText("");
+            setAiPanelPos(null);
+          }}
+          selectedText={selectedText}
+          onInsertBlocks={(blocks: AIBlock[]) => {
+            blocks.forEach((b) => {
+              addBlock(focusedBlockIndex, b.type || "paragraph");
+              updateBlock(focusedBlockIndex + 1, { text: b.content });
+            });
+            setShowAIWrite(false);
+            setSelectedText("");
+            setAiPanelPos(null);
+          }}
+          position={aiPanelPos ?? undefined}
+        />
+      )}
 
       {showComments && (
         <div className="border-t border-gray-200 px-6 py-4">

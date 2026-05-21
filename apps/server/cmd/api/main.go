@@ -18,6 +18,7 @@ import (
 	"github.com/bin-ke/my-notion/internal/permission"
 	"github.com/bin-ke/my-notion/internal/share"
 
+	"github.com/bin-ke/my-notion/internal/ai"
 	"github.com/bin-ke/my-notion/internal/search"
 	"github.com/bin-ke/my-notion/internal/workspace"
 	"github.com/bin-ke/my-notion/pkg/db"
@@ -131,6 +132,35 @@ func main() {
 		pageService.SearchService = searchService
 		blockService.SearchService = searchService
 		recordService.SearchService = searchService
+	}
+
+	// AI services (non-fatal if DeepSeek API key not set)
+	aiConfig := ai.LoadConfig()
+	aiClient := ai.NewClient(aiConfig)
+
+	var (
+		aiGateway       *ai.Gateway
+		writingHandler  *ai.WritingHandler
+		ragHandler      *ai.RAGHandler
+		autofillHandler *ai.AutofillHandler
+	)
+
+	if aiClient != nil {
+		aiGateway = ai.NewGateway(aiClient)
+
+		// Writing
+		writingService := ai.NewWritingService(aiGateway)
+		writingHandler = ai.NewWritingHandler(writingService)
+
+		// RAG
+		ragService := ai.NewRAGService(aiClient, database, searchService, permissionService)
+		ragHandler = ai.NewRAGHandler(ragService)
+
+		// Autofill
+		autofillService := ai.NewAutofillService(aiClient, database, recordService, rdb)
+		autofillHandler = ai.NewAutofillHandler(autofillService)
+	} else {
+		log.Println("INFO: AI features disabled (DEEPSEEK_API_KEY not set)")
 	}
 
 	// Router
@@ -272,6 +302,20 @@ func main() {
 			searchHandler := search.NewHandler(searchService, database, permissionService)
 			r.Get("/api/v1/search", searchHandler.Search)
 			r.Post("/api/v1/search/reindex", searchHandler.Reindex)
+		}
+
+		// AI routes
+		if aiClient != nil {
+			r.Route("/api/v1/ai", func(r chi.Router) {
+				r.Post("/write", writingHandler.Write)
+				r.Post("/ask", ragHandler.Ask)
+				r.Post("/autofill", autofillHandler.Autofill)
+				r.Get("/autofill/{jobId}", autofillHandler.JobStatus)
+					r.Get("/autofill/{jobId}/stream", autofillHandler.JobStream)
+			})
+
+			// AI monitoring dashboard
+			r.Get("/api/v1/ai/monitoring", aiGateway.GetMonitor().ServeHTTP)
 		}
 	})
 
