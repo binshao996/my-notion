@@ -152,3 +152,4 @@ tmp/
 # Go
 apps/server/tmp/
 apps/server/.modcache/
+apps/server/worker

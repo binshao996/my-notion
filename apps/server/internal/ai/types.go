@@ -96,6 +96,29 @@ type AutofillJob struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+// ---------- Embedding ----------
+
+// EmbeddingRequest is an OpenAI-compatible embedding request.
+type EmbeddingRequest struct {
+	Model string `json:"model"`
+	Input string `json:"input"`
+}
+
+// EmbeddingData holds a single embedding vector.
+type EmbeddingData struct {
+	Object    string    `json:"object"`
+	Embedding []float32 `json:"embedding"`
+	Index     int       `json:"index"`
+}
+
+// EmbeddingResponse is the response from an embeddings API.
+type EmbeddingResponse struct {
+	Object string          `json:"object"`
+	Data   []EmbeddingData `json:"data"`
+	Model  string          `json:"model"`
+	Usage  Usage           `json:"usage,omitempty"`
+}
+
 // ---------- Cost tracking ----------
 
 type CostLog struct {

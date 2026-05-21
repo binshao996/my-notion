@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -154,6 +155,27 @@ func main() {
 
 		// RAG
 		ragService := ai.NewRAGService(aiClient, database, searchService, permissionService)
+
+		// Initialize Milvus vector store for hybrid RAG search.
+		// Graceful degradation: if Milvus is unreachable, log warning and
+		// fall back to keyword-only search.
+		ctx := context.Background()
+		vectorStore, vsErr := ai.NewVectorStore(ctx, aiConfig.MilvusAddr, aiConfig.EmbeddingDim)
+		if vsErr != nil {
+			log.Printf("WARNING: Milvus unavailable at %s, RAG will use keyword-only search: %v",
+				aiConfig.MilvusAddr, vsErr)
+		} else {
+			if err := vectorStore.EnsureCollection(ctx); err != nil {
+				log.Printf("WARNING: Milvus collection setup failed: %v", err)
+				vectorStore.Close()
+			} else {
+				deepEmb := ai.NewDeepSeekEmbedder(aiClient)
+				ragService.SetVectorStore(vectorStore, deepEmb)
+				log.Printf("Milvus connected at %s, hybrid RAG search enabled (dim=%d)",
+					aiConfig.MilvusAddr, aiConfig.EmbeddingDim)
+			}
+		}
+
 		ragHandler = ai.NewRAGHandler(ragService)
 
 		// Autofill

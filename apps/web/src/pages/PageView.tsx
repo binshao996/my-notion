@@ -13,6 +13,7 @@ import NotificationPopover from "../features/notifications/NotificationPopover";
 import CollaborationProvider, { useCollaboration } from "../features/collaboration/CollaborationProvider";
 import AwarenessCursors from "../features/collaboration/AwarenessCursors";
 import FileUploadButton from "../features/editor/FileUploadButton";
+import CoverImage from "../features/editor/CoverImage";
 import AIWritingPanel from "../features/ai/AIWritingPanel";
 import AIQAModal from "../features/ai/AIQAModal";
 import type { AIBlock } from "../features/ai/types";
@@ -53,8 +54,9 @@ export default function PageView() {
   useEffect(() => {
     if (pageId) {
       loadPage(Number(pageId));
-      api.get<{ workspace_id: number }>(`/pages/${pageId}`).then((p) => {
+      api.get<{ workspace_id: number; cover: string }>(`/pages/${pageId}`).then((p) => {
         if (p?.workspace_id) setWorkspaceId(p.workspace_id);
+        if (p?.cover) setCoverUrl(p.cover);
       }).catch(() => {});
     }
   }, [pageId, loadPage, setWorkspaceId]);
@@ -91,6 +93,7 @@ export default function PageView() {
 
   const [showComments, setShowComments] = useState(false);
   const [showAIQA, setShowAIQA] = useState(false);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -205,6 +208,9 @@ export default function PageView() {
           toggleBlockSelect={toggleBlockSelect}
           clearBlockSelection={clearBlockSelection}
           workspaceId={activeWorkspaceId}
+          coverUrl={coverUrl}
+          onCoverChange={(url: string) => setCoverUrl(url)}
+          onCoverRemove={() => setCoverUrl(null)}
         />
       </CollaborationProvider>
       {showAIQA && (
@@ -243,6 +249,9 @@ function EditorArea({
   toggleBlockSelect,
   clearBlockSelection,
   workspaceId,
+  coverUrl,
+  onCoverChange,
+  onCoverRemove,
 }: {
   pageId: number;
   blocks: any[];
@@ -271,6 +280,9 @@ function EditorArea({
   toggleBlockSelect: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
   clearBlockSelection: () => void;
   workspaceId: number | null;
+  coverUrl: string | null;
+  onCoverChange: (url: string) => void;
+  onCoverRemove: () => void;
 }) {
   const collab = useCollaboration();
 
@@ -393,6 +405,14 @@ function EditorArea({
           {!dirty && !saving && <span className="text-xs text-gray-300">Saved</span>}
         </div>
       </div>
+
+      {/* Cover image */}
+      <CoverImage
+        coverUrl={coverUrl}
+        pageId={pageId}
+        onChange={onCoverChange}
+        onRemove={onCoverRemove}
+      />
 
       {/* Block editor */}
       <div

@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from "react";
 import BlockContent from "./BlockContent";
+import { useEditorStore } from "./useEditorStore";
 import type * as Y from "yjs";
 
 export interface BlockData {
@@ -69,6 +70,36 @@ export default function BlockShell({
   const [isComposing, setIsComposing] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const dragOverIndex = useEditorStore((s) => s.dragOverIndex);
+  const setDragOver = useEditorStore((s) => s.setDragOver);
+  const findBlockIndex = useEditorStore((s) => s.findBlockIndex);
+  const moveBlock = useEditorStore((s) => s.moveBlock);
+  const blockId = String(block.tempId || block.id || index);
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      setDragOver(index);
+    },
+    [index, setDragOver]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const draggedId = e.dataTransfer.getData("text/plain");
+      if (!draggedId) return;
+      const fromIndex = findBlockIndex(draggedId);
+      if (fromIndex === -1 || fromIndex === index) return;
+      moveBlock(fromIndex, index);
+      setDragOver(null);
+    },
+    [index, findBlockIndex, moveBlock, setDragOver]
+  );
+
   const handleUpdate = useCallback(
     (_html: string, text: string) => {
       onUpdate(index, { ...block.props, text });
@@ -112,7 +143,12 @@ export default function BlockShell({
   // Divider is a special case
   if (block.type === "divider") {
     return (
-      <div className="group relative my-4" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-4${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <hr className="border-gray-200" />
         <div className="absolute -left-10 top-1/2 hidden -translate-y-1/2 group-hover:block">
           <BlockMenu
@@ -130,7 +166,12 @@ export default function BlockShell({
   if (block.type === "image") {
     const src = block.props?.url || block.props?.src || "";
     return (
-      <div className="group relative my-2" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-2${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         {src ? (
           <img src={src} alt="" className="max-w-full rounded" />
         ) : (
@@ -144,9 +185,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -181,7 +223,12 @@ export default function BlockShell({
     const url = block.props?.url || "";
     const name = block.props?.name || block.props?.title || "File";
     return (
-      <div className="group relative my-2" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-2${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <a
           href={url || "#"}
           target="_blank"
@@ -197,9 +244,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -235,7 +283,12 @@ export default function BlockShell({
     const title = block.props?.title || "Bookmark";
     const desc = block.props?.description || "";
     return (
-      <div className="group relative my-2" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-2${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <a
           href={url || "#"}
           target="_blank"
@@ -254,9 +307,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -291,11 +345,13 @@ export default function BlockShell({
     const eqContent = typeof block.props.text === "string" ? block.props.text : "";
     return (
       <div
-        className={`group relative flex w-full items-start ${isSelected ? "border-l-2 border-blue-500 bg-blue-50 pl-1" : ""}`}
+        className={`group relative flex w-full items-start ${isSelected ? "border-l-2 border-blue-500 bg-blue-50 pl-1" : ""}${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
         onKeyDown={handleKeyDown}
         onCompositionStart={handleCompositionStart}
         onCompositionEnd={handleCompositionEnd}
         onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
       >
         <div className="absolute -left-10 top-0 hidden pt-1 group-hover:flex">
           <button
@@ -303,9 +359,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -350,7 +407,12 @@ export default function BlockShell({
   // Table of Contents block
   if (block.type === "table_of_contents") {
     return (
-      <div className="group relative my-2" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-2${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <div className="rounded border border-gray-200 bg-gray-50 px-4 py-2 text-sm text-gray-500">
           Table of Contents
         </div>
@@ -360,9 +422,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -395,7 +458,12 @@ export default function BlockShell({
   // Columns block - placeholder container
   if (block.type === "columns") {
     return (
-      <div className="group relative my-2" onClick={() => onFocus(index)}>
+      <div
+        className={`group relative my-2${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
+        onClick={() => onFocus(index)}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         <div className="flex gap-4 rounded border-2 border-dashed border-gray-300 px-4 py-3">
           <div className="flex-1 rounded border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-sm text-gray-400">
             Column
@@ -410,9 +478,10 @@ export default function BlockShell({
             draggable
             onClick={() => setShowMenu(!showMenu)}
             onDragStart={(e) => {
-              e.dataTransfer.setData("text/plain", String(index));
+              e.dataTransfer.setData("text/plain", blockId);
               e.dataTransfer.effectAllowed = "move";
             }}
+            onDragEnd={() => setDragOver(null)}
             title="Drag to reorder"
           >
             ⋮⋮
@@ -446,10 +515,12 @@ export default function BlockShell({
 
   return (
     <div
-      className={`group relative flex w-full items-start ${isSelected ? "border-l-2 border-blue-500 bg-blue-50 pl-1" : ""}`}
+      className={`group relative flex w-full items-start ${isSelected ? "border-l-2 border-blue-500 bg-blue-50 pl-1" : ""}${dragOverIndex === index ? " border-t-2 border-blue-500" : ""}`}
       onKeyDown={handleKeyDown}
       onCompositionStart={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       {/* Hover handle */}
       <div className="absolute -left-10 top-0 hidden pt-1 group-hover:flex">
@@ -458,21 +529,10 @@ export default function BlockShell({
           draggable
           onClick={() => setShowMenu(!showMenu)}
           onDragStart={(e) => {
-            e.dataTransfer.setData("text/plain", String(index));
+            e.dataTransfer.setData("text/plain", blockId);
             e.dataTransfer.effectAllowed = "move";
           }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const fromIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
-            if (!isNaN(fromIndex) && fromIndex !== index) {
-              onFocus(fromIndex);
-              // moveBlock is handled by the parent container
-            }
-          }}
+          onDragEnd={() => setDragOver(null)}
           title="Drag to reorder"
         >
           ⋮⋮

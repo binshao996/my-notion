@@ -141,3 +141,44 @@ func EstimateCost(model string, promptTokens, completionTokens int) float64 {
 	outputCost := float64(completionTokens) / 1_000_000 * 0.28
 	return inputCost + outputCost
 }
+
+// CreateEmbedding calls the OpenAI-compatible embeddings endpoint (POST /v1/embeddings).
+// Returns a float32 vector of length config.EmbeddingDim.
+func (c *Client) CreateEmbedding(req *EmbeddingRequest) (*EmbeddingResponse, error) {
+	if !c.IsAvailable() {
+		return nil, fmt.Errorf("ai client not available: DEEPSEEK_API_KEY not set")
+	}
+	if req.Model == "" {
+		req.Model = c.config.Model
+	}
+
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal embedding request: %w", err)
+	}
+
+	url := c.config.BaseURL + "/v1/embeddings"
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create embedding request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+c.config.APIKey)
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("embedding http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("embedding api error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var embResp EmbeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&embResp); err != nil {
+		return nil, fmt.Errorf("decode embedding response: %w", err)
+	}
+	return &embResp, nil
+}

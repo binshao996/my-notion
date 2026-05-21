@@ -19,6 +19,7 @@ interface EditorState {
   commandPaletteIndex: number | null; // which block shows the / menu
   focusedBlockIndex: number;
   selectedBlockIndices: number[];
+  dragOverIndex: number | null;
 
   loadPage: (pageId: number) => Promise<void>;
   addBlock: (afterIndex: number, type?: string) => void;
@@ -37,6 +38,8 @@ interface EditorState {
   toggleBlockSelect: (index: number, shiftKey: boolean, ctrlKey: boolean) => void;
   selectBlockRange: (from: number, to: number) => void;
   clearBlockSelection: () => void;
+  setDragOver: (index: number | null) => void;
+  findBlockIndex: (blockId: string) => number;
 }
 
 let tempIdCounter = 0;
@@ -54,6 +57,58 @@ function newBlock(type: string = "paragraph"): BlockData {
   };
 }
 
+// Fractional indexing for block position ordering
+const DIGITS = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function charIndex(c: string): number {
+  return DIGITS.indexOf(c);
+}
+
+function incrementPosition(s: string): string {
+  if (!s) return "a0";
+  const lastIdx = s.length - 1;
+  const idx = charIndex(s[lastIdx]);
+  if (idx < DIGITS.length - 1) {
+    return s.slice(0, lastIdx) + DIGITS[idx + 1];
+  }
+  return s + "0";
+}
+
+export function positionBetween(a: string, b: string): string {
+  if (!a) a = "0";
+  if (!b) return incrementPosition(a);
+  if (a >= b) return incrementPosition(a);
+
+  let i = 0;
+  const result: string[] = [];
+  while (i < a.length && i < b.length && a[i] === b[i]) {
+    result.push(a[i]);
+    i++;
+  }
+
+  if (i < a.length) {
+    result.push(a[i]);
+    for (let j = i + 1; j < a.length; j++) {
+      if (a[j] !== "Z") {
+        result.push(String.fromCharCode(a.charCodeAt(j) + 1));
+        return result.join("");
+      }
+    }
+  }
+
+  let nextChar = "m";
+  if (i < a.length && i < b.length) {
+    const mid = Math.floor((charIndex(a[i]) + charIndex(b[i])) / 2);
+    nextChar = DIGITS[mid];
+  } else if (i < b.length) {
+    const mid = Math.floor(charIndex(b[i]) / 2);
+    nextChar = DIGITS[mid];
+  }
+
+  result.push(nextChar);
+  return result.join("");
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   blocks: [],
   pageId: null,
@@ -64,6 +119,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   commandPaletteIndex: null,
   focusedBlockIndex: 0,
   selectedBlockIndices: [],
+  dragOverIndex: null,
 
   loadPage: async (pageId: number) => {
     set({ loading: true, error: null });
@@ -187,6 +243,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   clearBlockSelection: () => {
     set({ selectedBlockIndices: [] });
+  },
+
+  setDragOver: (index) => set({ dragOverIndex: index }),
+
+  findBlockIndex: (blockId) => {
+    const { blocks } = get();
+    return blocks.findIndex((b) => String(b.tempId || b.id) === blockId);
   },
 
   duplicateBlock: (index) => {

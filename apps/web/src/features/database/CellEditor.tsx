@@ -62,8 +62,11 @@ function displayValue(value: any, property: Property): string {
       }
       return persons.name ?? "—";
     }
-    case "files":
-      return "—";
+    case "files": {
+      const files = value?.files;
+      if (!files || !Array.isArray(files) || files.length === 0) return "";
+      return files.map((f: any) => f.name || f.url).join(", ");
+    }
     case "created_time":
     case "last_edited_time":
       return value?.date ? new Date(value.date).toLocaleDateString() : "";
@@ -106,6 +109,8 @@ function buildCommitValue(raw: string, property: Property): any {
     case "created_time":
     case "last_edited_time":
       return null;
+    case "files":
+      return null; // files editing handled by FilesCellEditor directly
     default:
       return { text: raw };
   }
@@ -280,6 +285,111 @@ function PersonCellEditor({
   );
 }
 
+function FilesCellEditor({
+  value,
+  onChange,
+  workspaceId,
+}: {
+  value: any;
+  onChange: (value: any) => void;
+  workspaceId?: number;
+}) {
+  const files: { url: string; name: string }[] = value?.files ?? [];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError(null);
+    setUploading(true);
+
+    try {
+      const body: Record<string, unknown> = {
+        filename: file.name,
+        content_type: file.type || "application/octet-stream",
+      };
+      if (workspaceId) {
+        body.workspace_id = workspaceId;
+      }
+
+      const data = await api.post<{ upload_url: string; public_url: string }>(
+        "/files/upload-url",
+        body
+      );
+
+      const putResponse = await fetch(data.upload_url, {
+        method: "PUT",
+        body: file,
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+      });
+
+      if (!putResponse.ok) {
+        throw new Error(`Upload failed with status ${putResponse.status}`);
+      }
+
+      const newFile = { url: data.public_url, name: file.name };
+      onChange({ files: [...files, newFile] });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Upload failed";
+      setError(message);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeFile = (index: number) => {
+    const updated = files.filter((_, i) => i !== index);
+    onChange({ files: updated.length > 0 ? updated : [] });
+  };
+
+  return (
+    <div className="flex flex-col gap-1 py-0.5">
+      {files.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {files.map((file, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700"
+            >
+              {file.name || file.url}
+              <button
+                onClick={() => removeFile(i)}
+                className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-blue-500 hover:bg-blue-200 hover:text-blue-800 text-xs leading-none"
+                title="Remove"
+              >
+                &times;
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelect}
+        disabled={uploading}
+      />
+      <button
+        type="button"
+        className="rounded px-2 py-0.5 text-xs text-gray-400 hover:text-gray-600 disabled:opacity-50 text-left"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+      >
+        {uploading ? "Uploading..." : "+ Add file"}
+      </button>
+      {error && <span className="text-xs text-red-500">{error}</span>}
+    </div>
+  );
+}
+
 export default function CellEditor({
   property,
   value,
@@ -381,8 +491,19 @@ export default function CellEditor({
     );
   }
 
-  // ---------- files: read-only for now ----------
-  if (property.type === "files" || property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup" || property.type === "formula") {
+  // ---------- files: multi-file upload ----------
+  if (property.type === "files") {
+    return (
+      <FilesCellEditor
+        value={value}
+        onChange={onChange}
+        workspaceId={workspaceId}
+      />
+    );
+  }
+
+  // ---------- created_time / last_edited_time / rollup / formula: read-only ----------
+  if (property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup" || property.type === "formula") {
     return (
       <div className="text-sm text-gray-400 px-1 py-0.5 select-none">
         {displayValue(value, property) || "—"}
