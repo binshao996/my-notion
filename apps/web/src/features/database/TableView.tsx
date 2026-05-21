@@ -23,6 +23,7 @@ interface TableViewProps {
   titlePropertyId?: number;
   databaseId: number;
   sourcePropertyId?: number;
+  workspaceId?: number;
 }
 
 function getRecordValue(record: DatabaseRecord, propertyId: number): any {
@@ -200,6 +201,7 @@ export default function TableView({
                           onChange={(value) =>
                             onUpdateRecord(record.id, prop.id, value)
                           }
+                          workspaceId={workspaceId}
                         />
                       </td>
                     );

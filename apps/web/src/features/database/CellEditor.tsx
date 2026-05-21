@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { Property, SelectOption } from "../../types/database";
+import { api } from "../../lib/api";
 import RelationPicker from "./RelationPicker";
 
 interface CellEditorProps {
@@ -7,6 +8,7 @@ interface CellEditorProps {
   value: any;
   onChange: (value: any) => void;
   readOnly?: boolean;
+  workspaceId?: number;
 }
 
 /** Extract the human-readable display string from a raw JSONB value */
@@ -52,7 +54,14 @@ function displayValue(value: any, property: Property): string {
       return value?.date ?? "";
     case "checkbox":
       return value?.checkbox ? "true" : "false";
-    case "person":
+    case "person": {
+      const persons = value?.person;
+      if (!persons) return "—";
+      if (Array.isArray(persons)) {
+        return persons.length === 0 ? "—" : persons.map((p: any) => p.name).join(", ");
+      }
+      return persons.name ?? "—";
+    }
     case "files":
       return "—";
     case "created_time":
@@ -92,6 +101,8 @@ function buildCommitValue(raw: string, property: Property): any {
       return null;
     case "formula":
       return null;
+    case "person":
+      return null; // person values come from a picker, not text input
     case "created_time":
     case "last_edited_time":
       return null;
@@ -133,11 +144,148 @@ function editInitialValue(value: any, property: Property): string {
   }
 }
 
+function PersonCellEditor({
+  value,
+  onChange,
+  workspaceId,
+}: {
+  value: any;
+  onChange: (value: any) => void;
+  workspaceId?: number;
+}) {
+  const currentPerson: { id: number; name: string; avatar_url: string } | null =
+    value?.person ?? null;
+  const [editing, setEditing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearch = (query: string) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    if (!query.trim() || !workspaceId) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const members = await api.get<any[]>(
+          `/workspaces/${workspaceId}/members?q=${encodeURIComponent(query)}`
+        );
+        setSearchResults(members || []);
+        setShowDropdown(true);
+      } catch {
+        setSearchResults([]);
+        setShowDropdown(false);
+      }
+    }, 300);
+  };
+
+  // Chip with remove button when person is selected
+  if (currentPerson) {
+    return (
+      <div className="flex items-center gap-1 px-1 py-0.5">
+        <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-blue-400 text-[10px] font-medium text-white">
+            {currentPerson.name?.charAt(0).toUpperCase()}
+          </span>
+          {currentPerson.name}
+          <button
+            onClick={() => onChange({ person: null })}
+            className="ml-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-blue-500 hover:bg-blue-200 hover:text-blue-800 text-xs leading-none"
+            title="Remove"
+          >
+            &times;
+          </button>
+        </span>
+      </div>
+    );
+  }
+
+  // Not editing: show empty placeholder
+  if (!editing) {
+    return (
+      <div
+        className="text-sm text-gray-400 px-1 py-0.5 min-h-[1.5rem] cursor-pointer rounded hover:bg-blue-50"
+        onClick={() => setEditing(true)}
+      >
+        —
+      </div>
+    );
+  }
+
+  // Editing: show search input with dropdown
+  return (
+    <div className="relative">
+      <input
+        autoFocus
+        className="w-full rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-blue-400"
+        placeholder="Search members..."
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          handleSearch(e.target.value);
+        }}
+        onBlur={() => {
+          setTimeout(() => {
+            setShowDropdown(false);
+            if (!value?.person) setEditing(false);
+          }, 200);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            setEditing(false);
+            setSearchQuery("");
+            setSearchResults([]);
+            setShowDropdown(false);
+          }
+        }}
+      />
+      {showDropdown && searchResults.length > 0 && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded border border-gray-200 bg-white py-1 shadow-lg">
+          {searchResults.map((member: any) => (
+            <button
+              key={member.id}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange({
+                  person: {
+                    id: member.id,
+                    name: member.name,
+                    avatar_url: member.avatar_url,
+                  },
+                });
+                setSearchQuery("");
+                setSearchResults([]);
+                setShowDropdown(false);
+                setEditing(false);
+              }}
+            >
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-300 text-[10px] font-medium text-white">
+                {member.name?.charAt(0).toUpperCase()}
+              </span>
+              {member.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {showDropdown && searchQuery.trim() && searchResults.length === 0 && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded border border-gray-200 bg-white py-2 px-3 text-xs text-gray-400 shadow-lg">
+          No members found
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CellEditor({
   property,
   value,
   onChange,
   readOnly,
+  workspaceId,
 }: CellEditorProps) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -222,8 +370,19 @@ export default function CellEditor({
     );
   }
 
-  // ---------- person / files: read-only for now ----------
-  if (property.type === "person" || property.type === "files" || property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup" || property.type === "formula") {
+  // ---------- person: member picker ----------
+  if (property.type === "person") {
+    return (
+      <PersonCellEditor
+        value={value}
+        onChange={onChange}
+        workspaceId={workspaceId}
+      />
+    );
+  }
+
+  // ---------- files: read-only for now ----------
+  if (property.type === "files" || property.type === "created_time" || property.type === "last_edited_time" || property.type === "rollup" || property.type === "formula") {
     return (
       <div className="text-sm text-gray-400 px-1 py-0.5 select-none">
         {displayValue(value, property) || "—"}

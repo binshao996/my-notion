@@ -313,6 +313,8 @@ export default function DatabasePage() {
             </div>
           ) : activeView.type === "table" ? (
             <TableView
+              databaseId={dbIdNum}
+              sourcePropertyId={titleProperty?.id}
               properties={properties}
               records={records}
               activeView={activeView}
@@ -320,6 +322,7 @@ export default function DatabasePage() {
               onDeleteRecord={deleteRecord}
               onCreateRecord={handleNewRecord}
               titlePropertyId={titleProperty?.id}
+              workspaceId={database?.workspace_id}
             />
           ) : activeView.type === "board" ? (
             <BoardView
